@@ -32,8 +32,7 @@ where
     V: Batch + BatchIterator + Act,
     M: Sized + Send,
     T: EndOffset + 'static,
-{
-}
+{}
 
 impl<T, M, V> RestoreHeader<T, M, V>
 where

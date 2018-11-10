@@ -145,8 +145,7 @@ impl<T, S> IpHeader for SegmentRoutingHeader<T, S>
 where
     T: Ipv6VarHeader,
     S: ArrayLength<Segment>,
-{
-}
+{}
 
 // The SegmentRoutingHeader is an extension header, and so has a next header
 // field and can be the PreviousHeader for another header.
@@ -368,7 +367,7 @@ where
     }
 
     pub fn flags(&self) -> u8 {
-        u8::from_be(self.flags)
+        self.flags
     }
 
     /// Tag: tag a packet as part of a class or group of packets, e.g., packets

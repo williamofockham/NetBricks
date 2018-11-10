@@ -465,7 +465,8 @@ impl ReorderedBuffer {
             self.tail_seq = self.tail_seq.wrapping_add(written as u32);
             {
                 // Insert into segment list.
-                let segment = self.segment_list
+                let segment = self
+                    .segment_list
                     .insert_segment(seq, written as u16)
                     .unwrap();
                 // Since we are writing to the beginning, this must always be the head.

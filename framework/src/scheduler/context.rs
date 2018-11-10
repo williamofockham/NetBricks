@@ -92,7 +92,8 @@ impl NetBricksContext {
         T: Fn(Vec<AlignedVirtualQueue>, &mut StandaloneScheduler) + Send + Sync + 'static,
     {
         for (core, channel) in &self.scheduler_channels {
-            let port = self.virtual_ports
+            let port = self
+                .virtual_ports
                 .entry(*core)
                 .or_insert(VirtualPort::new(1).unwrap());
             let boxed_run = run.clone();
@@ -132,7 +133,8 @@ impl NetBricksContext {
         T: Fn(Vec<AlignedVirtualQueue>, &mut StandaloneScheduler) + Send + Sync + 'static,
     {
         if let Some(channel) = self.scheduler_channels.get(&core) {
-            let port = self.virtual_ports
+            let port = self
+                .virtual_ports
                 .entry(core)
                 .or_insert(VirtualPort::new(1).unwrap());
             let boxed_run = run.clone();
@@ -159,7 +161,8 @@ impl NetBricksContext {
     /// Pause all schedulers, the returned `BarrierHandle` can be used to resume.
     pub fn barrier(&mut self) -> BarrierHandle {
         // TODO: If this becomes a problem, move this to the struct itself; but make sure to fix `stop` appropriately.
-        let channels: Vec<_> = self.scheduler_handles
+        let channels: Vec<_> = self
+            .scheduler_handles
             .iter()
             .map(|_| sync_channel(0))
             .collect();

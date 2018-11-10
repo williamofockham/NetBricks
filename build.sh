@@ -36,6 +36,14 @@ fi
 
 RUNNABLE_TESTS="tcp-payload tcp-checksum macswap ipv4or6 srv6-compose srv6-inject icmpv6 srv6-sighup-flow"
 
+pushd () {
+    command pushd "$@" > /dev/null
+}
+
+popd () {
+    command popd "$@" > /dev/null
+}
+
 toggle_symbols () {
     if [ ! -z ${NETBRICKS_SYMBOLS} ]; then
         find ${BASE_DIR}/test -name Cargo.toml -exec sed -i 's/debug = false/debug = true/g' {} \;
@@ -184,16 +192,30 @@ case $TASK in
         done
         ;;
     test)
-        pushd $BASE_DIR/framework
-        export LD_LIBRARY_PATH="${NATIVE_LIB_PATH}:${DPDK_LD_PATH}:${LD_LIBRARY_PATH}"
-        ${CARGO} test
-        popd
+        if [ $# -lt 2 ]; then
+            echo "We will build & run these tests:"
+            for testname in $RUNNABLE_TESTS; do
+                echo $testname
+            done
+            echo "...and unit/others tests"
 
-        for testname in $RUNNABLE_TESTS; do
-            pushd $BASE_DIR/test/$testname
+            pushd $BASE_DIR/framework
+            export LD_LIBRARY_PATH="${NATIVE_LIB_PATH}:${DPDK_LD_PATH}:${LD_LIBRARY_PATH}"
+            ${CARGO} test
+            popd
+
+            for testname in $RUNNABLE_TESTS; do
+                pushd $BASE_DIR/test/$testname
+                ./check.sh
+                popd
+            done
+        else
+            test=$2
+            echo "Running ${test}"
+            pushd $BASE_DIR/test/$test
             ./check.sh
             popd
-        done
+        fi
         ;;
     run)
         shift

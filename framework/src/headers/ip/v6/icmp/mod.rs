@@ -1,9 +1,12 @@
-use super::EndOffset;
-use headers::ip::IpHeader;
+pub use self::packet_too_big::*;
+use super::{EndOffset, IpHeader};
+use headers::CalcChecksums;
 use num::FromPrimitive;
 use std::default::Default;
 use std::fmt;
 use std::marker::PhantomData;
+
+mod packet_too_big;
 
 /*
    ICMPv6 messages are contained in IPv6 packets. The IPv6 packet contains an IPv6 header followed by the
@@ -29,11 +32,12 @@ use std::marker::PhantomData;
 
    The checksum field is used to detect data corruption in the ICMPv6
    message and parts of the IPv6 header.
-*/
+ */
 
 #[derive(FromPrimitive, Debug, PartialEq)]
 #[repr(u16)]
 pub enum IcmpMessageType {
+    PacketTooBig = 2,
     RouterAdvertisement = 134,
     NeighborSolicitation = 135,
     NeighborAdvertisement = 136,
@@ -42,6 +46,7 @@ pub enum IcmpMessageType {
 impl fmt::Display for IcmpMessageType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            IcmpMessageType::PacketTooBig => write!(f, "Packet Too Big"),
             IcmpMessageType::RouterAdvertisement => write!(f, "Router Advertisement"),
             IcmpMessageType::NeighborSolicitation => write!(f, "Neighbor Solicitation"),
             IcmpMessageType::NeighborAdvertisement => write!(f, "Neighbor Advertisement"),
@@ -51,19 +56,22 @@ impl fmt::Display for IcmpMessageType {
 
 #[derive(Debug)]
 #[repr(C, packed)]
-pub struct IcmpV6Header<T> {
+pub struct Icmpv6Header<T>
+where
+    T: IpHeader,
+{
     msg_type: u8,
     code: u8,
     checksum: u16,
     _parent: PhantomData<T>,
 }
 
-impl<T> Default for IcmpV6Header<T>
+impl<T> Default for Icmpv6Header<T>
 where
     T: IpHeader,
 {
-    fn default() -> IcmpV6Header<T> {
-        IcmpV6Header {
+    fn default() -> Icmpv6Header<T> {
+        Icmpv6Header {
             msg_type: 0,
             code: 0,
             checksum: 0,
@@ -72,7 +80,7 @@ where
     }
 }
 
-impl<T> fmt::Display for IcmpV6Header<T>
+impl<T> fmt::Display for Icmpv6Header<T>
 where
     T: IpHeader,
 {
@@ -87,7 +95,7 @@ where
     }
 }
 
-impl<T> EndOffset for IcmpV6Header<T>
+impl<T> EndOffset for Icmpv6Header<T>
 where
     T: IpHeader,
 {
@@ -117,37 +125,47 @@ where
     }
 }
 
-impl<T> IcmpV6Header<T>
+impl<T> Icmpv6Header<T>
 where
     T: IpHeader,
 {
     #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    #[inline]
     pub fn msg_type(&self) -> Option<IcmpMessageType> {
-        FromPrimitive::from_u8(u8::from_be(self.msg_type))
+        FromPrimitive::from_u8(self.msg_type)
     }
 
     #[inline]
     pub fn set_msg_type(&mut self, msg_type: IcmpMessageType) {
-        self.msg_type = u8::to_be(msg_type as u8)
+        self.msg_type = msg_type as u8
     }
 
     #[inline]
     pub fn set_code(&mut self, code: u8) {
-        self.code = u8::to_be(code)
+        self.code = code
     }
 
     #[inline]
     pub fn code(&self) -> u8 {
-        u8::from_be(self.code)
+        self.code
     }
+}
 
+impl<T> CalcChecksums for Icmpv6Header<T>
+where
+    T: IpHeader,
+{
     #[inline]
-    pub fn checksum(&self) -> u16 {
+    fn checksum(&self) -> u16 {
         u16::from_be(self.checksum)
     }
 
     #[inline]
-    pub fn set_checksum(&mut self, csum: u16) {
-        self.checksum = u16::to_be(csum)
+    fn set_checksum(&mut self, checksum: u16) {
+        self.checksum = u16::to_be(checksum)
     }
 }

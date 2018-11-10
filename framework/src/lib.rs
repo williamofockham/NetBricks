@@ -11,6 +11,7 @@
 #![feature(const_fn)]
 #![feature(ip_constructors)]
 #![feature(type_ascription)]
+#![feature(tool_attributes)]
 // FIXME: Figure out if this is really the right thing here.
 #![feature(ptr_internals)]
 #![feature(iterator_step_by)]
@@ -31,10 +32,10 @@ extern crate byteorder;
 extern crate fnv;
 #[macro_use]
 extern crate lazy_static;
+extern crate hex;
 extern crate libc;
 extern crate net2;
 extern crate num;
-extern crate hex;
 
 #[macro_use]
 extern crate num_derive;

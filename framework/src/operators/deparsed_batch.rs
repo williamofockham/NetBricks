@@ -20,11 +20,7 @@ where
     act!{}
 }
 
-impl<V> Batch for DeparsedBatch<V>
-where
-    V: Batch + BatchIterator + Act,
-{
-}
+impl<V> Batch for DeparsedBatch<V> where V: Batch + BatchIterator + Act {}
 
 impl<V> DeparsedBatch<V>
 where
