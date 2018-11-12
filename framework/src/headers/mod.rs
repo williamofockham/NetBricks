@@ -36,16 +36,24 @@ pub trait EndOffset: Send {
 
     /// Offset returns the number of bytes to skip to get to the next header, relative to the start
     /// of the mbuf.
-    fn offset(&self) -> usize;
+    fn offset(&self) -> usize {
+        0
+    }
 
     /// Returns the size of this header in bytes.
-    fn size() -> usize;
+    fn size() -> usize {
+        0
+    }
 
     /// Returns the size of the payload in bytes. The hint is necessary for things like the L2 header which have no
     /// explicit length field.
-    fn payload_size(&self, hint: usize) -> usize;
+    fn payload_size(&self, _hint: usize) -> usize {
+        0
+    }
 
-    fn check_correct(&self, prev: &Self::PreviousHeader) -> bool;
+    fn check_correct(&self, _prev: &Self::PreviousHeader) -> bool {
+        true
+    }
 }
 
 pub trait CalcChecksums {
@@ -112,4 +120,16 @@ pub trait CalcChecksums {
         self.set_checksum(fin_sum);
         Some(fin_sum)
     }
+}
+
+/// A trait implemented on headers that provide updates on byte-changes to packets
+/// TODO: Eventually roll this and other setters into packet actions like remove,
+///       insert, swap, etc, as part of specific changes to certain *types* of
+///       headers in a packet.
+///       In ref. to https://github.comcast.com/occam/og/pull/103#discussion_r293652
+pub trait HeaderUpdates {
+    type PreviousHeader: EndOffset;
+
+    fn update_payload_len(&mut self, payload_diff: isize);
+    fn update_next_header(&mut self, hdr: NextHeader);
 }

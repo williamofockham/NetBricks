@@ -34,8 +34,6 @@ else
     proc=`nproc`
 fi
 
-RUNNABLE_TESTS="tcp-payload tcp-checksum macswap ipv4or6 srv6-compose srv6-inject icmpv6 srv6-sighup-flow"
-
 pushd () {
     command pushd "$@" > /dev/null
 }
@@ -82,10 +80,6 @@ print_examples () {
 
 clean () {
     pushd $BASE_DIR/framework
-    ${CARGO} clean || true
-    popd
-
-    pushd $BASE_DIR/test/framework-test
     ${CARGO} clean || true
     popd
 
@@ -194,20 +188,26 @@ case $TASK in
     test)
         if [ $# -lt 2 ]; then
             echo "We will build & run these tests:"
-            for testname in $RUNNABLE_TESTS; do
-                echo $testname
+            for testname in ${examples[@]}; do
+                if [ -f $BASE_DIR/$testname/check.sh ]; then
+                    echo $testname
+                fi
             done
-            echo "...and unit/others tests"
+            echo "...and all unit and property-based tests"
 
             pushd $BASE_DIR/framework
             export LD_LIBRARY_PATH="${NATIVE_LIB_PATH}:${DPDK_LD_PATH}:${LD_LIBRARY_PATH}"
             ${CARGO} test
             popd
 
-            for testname in $RUNNABLE_TESTS; do
-                pushd $BASE_DIR/test/$testname
-                ./check.sh
-                popd
+            for testname in ${examples[@]}; do
+                if [ -f $BASE_DIR/$testname/check.sh ]; then
+                    # reset out.pcap first
+                    touch /tmp/out.pcap
+                    pushd $BASE_DIR/$testname
+                    ./check.sh
+                    popd
+                fi
             done
         else
             test=$2

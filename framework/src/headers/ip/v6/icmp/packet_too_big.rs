@@ -10,7 +10,7 @@ use std::marker::PhantomData;
    From (https://tools.ietf.org/html/rfc4443)
    The ICMPv6 messages have the following general format:
 
-n   0                   1                   2                   3
+   0                   1                   2                   3
    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |     Type      |     Code      |          Checksum             |
@@ -59,8 +59,11 @@ where
 {
     fn default() -> Icmpv6PktTooBig<T> {
         Icmpv6PktTooBig {
-            icmp: Default::default(),
-            mtu: IPV6_MIN_MTU,
+            icmp: Icmpv6Header {
+                msg_type: IcmpMessageType::PacketTooBig as u8,
+                ..Default::default()
+            },
+            mtu: u32::to_be(IPV6_MIN_MTU),
             _parent: PhantomData,
         }
     }

@@ -3,7 +3,7 @@ pub use self::icmp::*;
 pub use self::srh::*;
 use super::IpHeader;
 use byteorder::{BigEndian, ByteOrder};
-use headers::{EndOffset, MacHeader, ICMP_NXT_HDR, TCP_NXT_HDR, UDP_NXT_HDR};
+use headers::{EndOffset, HeaderUpdates, MacHeader, ICMP_NXT_HDR, TCP_NXT_HDR, UDP_NXT_HDR};
 use num::FromPrimitive;
 use std::default::Default;
 use std::fmt;
@@ -104,23 +104,13 @@ pub trait Ipv6VarHeader: EndOffset {
     fn next_header(&self) -> Option<NextHeader>;
 }
 
-/// A trait implemented on headers that provide updates on byte-changes to packets
-/// TODO: Eventually roll this and other setters into packet actions like remove,
-///       insert, swap, etc, as part of specific changes to certain *types* of
-///       headers in a packet.
-///       In ref. to https://github.comcast.com/occam/og/pull/103#discussion_r293652
-pub trait Headerv6Updates {
-    fn update_payload_len(&mut self, payload_diff: isize);
-    fn update_next_header(&mut self, hdr: NextHeader);
-}
-
 impl Default for NextHeader {
     fn default() -> NextHeader {
         NextHeader::NoNextHeader
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C, packed)]
 pub struct Ipv6Header {
     version_to_flow_label: u32,
@@ -134,10 +124,10 @@ pub struct Ipv6Header {
 impl Default for Ipv6Header {
     fn default() -> Ipv6Header {
         Ipv6Header {
-            version_to_flow_label: u32::to_be(6 << 24),
+            version_to_flow_label: u32::to_be(6 << 28),
             payload_len: 0,
-            next_header: 0,
             hop_limit: 0,
+            next_header: NextHeader::default() as u8,
             src_ip: Ipv6Addr::unspecified(),
             dst_ip: Ipv6Addr::unspecified(),
         }
@@ -353,11 +343,19 @@ impl Ipv6Header {
     }
 }
 
-impl Headerv6Updates for Ipv6Header {
+impl HeaderUpdates for Ipv6Header {
+    type PreviousHeader = MacHeader;
+
     #[inline]
     fn update_payload_len(&mut self, payload_diff: isize) {
-        let current_payload = self.payload_len();
-        self.set_payload_len((current_payload as isize + payload_diff) as u16);
+        match self.next_header() {
+            Some(NextHeader::Icmp) => (),
+            None => (),
+            _ => {
+                let current_payload = self.payload_len();
+                self.set_payload_len((current_payload as isize + payload_diff) as u16);
+            }
+        }
     }
 
     #[inline]

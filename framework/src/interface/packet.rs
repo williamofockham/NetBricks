@@ -1,6 +1,5 @@
 use common::*;
-use headers::ip::v6::Ipv6VarHeader;
-use headers::{EndOffset, Headerv6Updates, NextHeader, NullHeader, Protocol};
+use headers::{EndOffset, HeaderUpdates, Ipv6VarHeader, NextHeader, NullHeader, Protocol};
 use native::zcsi::*;
 use std::cmp::{self, Ordering};
 use std::fmt::Display;
@@ -302,7 +301,7 @@ impl<T: EndOffset, M: Sized + Send> Packet<T, M> {
     }
 
     #[inline]
-    fn data_len(&self) -> usize {
+    pub fn data_len(&self) -> usize {
         unsafe { (*self.mbuf).data_len() }
     }
 
@@ -453,8 +452,8 @@ impl<T: EndOffset, M: Sized + Send> Packet<T, M> {
         on_insert: &Fn(&mut T),
     ) -> Result<()>
     where
-        T: Headerv6Updates,
-        T2: Ipv6VarHeader,
+        T: HeaderUpdates,
+        T2: EndOffset,
     {
         unsafe {
             if let Ok(diff) = self.insert_a_header::<T2>(header) {
@@ -476,18 +475,15 @@ impl<T: EndOffset, M: Sized + Send> Packet<T, M> {
         header: &T2,
     ) -> Result<()>
     where
-        T: Headerv6Updates,
-        T2: Ipv6VarHeader,
+        T: HeaderUpdates,
+        T2: EndOffset,
     {
         self.insert_header_fn::<T2>(header_type, header, &|_| ())
     }
 
     /// Remove the next header from the currently parsed packet
     #[inline]
-    fn remove_a_header<T2: EndOffset<PreviousHeader = T>>(&mut self) -> Result<isize>
-    where
-        T2: Ipv6VarHeader,
-    {
+    fn remove_a_header<T2: EndOffset<PreviousHeader = T>>(&mut self) -> Result<isize> {
         unsafe {
             let packet_len = self.data_len(); // length of packet
             let var_header = self.payload() as *mut T2; // next_var_type_hdr ptr
@@ -531,7 +527,7 @@ impl<T: EndOffset, M: Sized + Send> Packet<T, M> {
         on_remove: &Fn(&mut T),
     ) -> Result<()>
     where
-        T: Headerv6Updates,
+        T: HeaderUpdates,
         T2: Ipv6VarHeader,
     {
         unsafe {
@@ -562,7 +558,7 @@ impl<T: EndOffset, M: Sized + Send> Packet<T, M> {
     #[inline]
     pub fn remove_header<T2: EndOffset<PreviousHeader = T>>(&mut self) -> Result<()>
     where
-        T: Headerv6Updates,
+        T: HeaderUpdates,
         T2: Ipv6VarHeader,
     {
         self.remove_header_fn::<T2>(&|_| ())

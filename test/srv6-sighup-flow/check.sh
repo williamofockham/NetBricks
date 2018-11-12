@@ -15,6 +15,9 @@ sleep 1
 cat test.log | tee /dev/tty | diff - data/expect_srv6.out
 TEST_ON_OFF=$?
 
+# make sure process is done
+kill -9 "$PID"
+
 echo ----
 if [[ $TEST_ON_OFF != 0 ]]; then
     echo "FAIL: TEST_SIGHUP - $TEST_ON_OFF"
