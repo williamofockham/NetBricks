@@ -1,4 +1,4 @@
-FROM williamofockham/sandbox
+FROM sandbox
 
 LABEL author="Aurojit Panda <apanda@cs.berkeley.edu>"
 LABEL maintainer="williamofockham <zeeshan.lakhani@gmail.com>"

@@ -1,18 +1,20 @@
 [package]
-name = "mtu-too-big"
+name = "check"
 version = "0.1.0"
 authors = ["William of Ockham <Occam_Engineering@comcast.com>"]
 
 [dependencies]
-netbricks = { path = "../../framework", features = ["performance"] }
-check = { path = "../../check" }
 time = ">=0.1.0"
-once_cell = "0.1.6"
-galvanic-assert = "0.8"
+quote = "*"
+syn = { version = "0.15.21", features = ["full", "extra-traits"] }
+proc-macro2 = { version = "*", features = ["nightly"] }
 
 [dependencies.static_assertions]
 version  = "0.3.1"
 features = ["nightly"]
+
+[lib]
+proc-macro = true
 
 [features]
 default = []

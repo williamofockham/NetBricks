@@ -12,8 +12,8 @@ struct Meta {
 impl Default for Meta {
     fn default() -> Meta {
         Meta {
-            src_ip: Ipv6Addr::unspecified(),
-            dst_ip: Ipv6Addr::unspecified(),
+            src_ip: Ipv6Addr::UNSPECIFIED,
+            dst_ip: Ipv6Addr::UNSPECIFIED,
         }
     }
 }
@@ -44,7 +44,8 @@ fn icmp_v6_nf<T: 'static + Batch<Header = MacHeader>>(parent: T) -> CompositionB
                     icmpv6.msg_type().unwrap(),
                     icmpv6.code(),
                     icmpv6.checksum()
-                ).purple()
+                )
+                .purple()
             );
 
             assert_eq!(

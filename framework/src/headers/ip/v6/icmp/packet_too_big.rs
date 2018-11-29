@@ -4,41 +4,41 @@ use std::fmt;
 use std::marker::PhantomData;
 
 /*
-   ICMPv6 messages are contained in IPv6 packets. The IPv6 packet contains an IPv6 header followed by the
-   payload which contains the ICMPv6 message.
+  ICMPv6 messages are contained in IPv6 packets. The IPv6 packet contains an IPv6 header followed by the
+  payload which contains the ICMPv6 message.
 
-   From (https://tools.ietf.org/html/rfc4443)
-   The ICMPv6 messages have the following general format:
+  From (https://tools.ietf.org/html/rfc4443)
+  The ICMPv6 messages have the following general format:
 
-   0                   1                   2                   3
-   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |     Type      |     Code      |          Checksum             |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                             MTU                               |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                    As much of invoking packet                 |
-   +               as possible without the ICMPv6 packet           +
-   |               exceeding the minifmum IPv6 MTU [IPv6]           |
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Type      |     Code      |          Checksum             |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                             MTU                               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                    As much of invoking packet                 |
+  +               as possible without the ICMPv6 packet           +
+  |               exceeding the minifmum IPv6 MTU [IPv6]           |
 
-   Type           2
+  Type           2
 
-   Code           Set to 0 (zero) by the originator and ignored by the
-   receiver.
+  Code           Set to 0 (zero) by the originator and ignored by the
+  receiver.
 
-   MTU            The Maximum Transmission Unit of the next-hop link.
+  MTU            The Maximum Transmission Unit of the next-hop link.
 
-   A Packet Too Big MUST be sent by a router in response to a packet
-   that it cannot forward because the packet is larger than the MTU of
-   the outgoing link.  The information in this message is used as part
-   of the Path MTU Discovery process [PMTU].
+  A Packet Too Big MUST be sent by a router in response to a packet
+  that it cannot forward because the packet is larger than the MTU of
+  the outgoing link.  The information in this message is used as part
+  of the Path MTU Discovery process [PMTU].
 
-   Originating a Packet Too Big Message makes an exception to one of the
-   rules as to when to originate an ICMPv6 error message.  Unlike other
-   messages, it is sent in response to a packet received with an IPv6
-   multicast destination address, or with a link-layer multicast or
-   link-layer broadcast address.
- */
+  Originating a Packet Too Big Message makes an exception to one of the
+  rules as to when to originate an ICMPv6 error message.  Unlike other
+  messages, it is sent in response to a packet received with an IPv6
+  multicast destination address, or with a link-layer multicast or
+  link-layer broadcast address.
+*/
 
 pub const IPV6_TOO_BIG_PAYLOAD_LEN: u16 = 1240; // MTU MIN - v6 size of 40;
 

@@ -9,30 +9,30 @@ use std::marker::PhantomData;
 mod packet_too_big;
 
 /*
-   ICMPv6 messages are contained in IPv6 packets. The IPv6 packet contains an IPv6 header followed by the
-   payload which contains the ICMPv6 message.
+  ICMPv6 messages are contained in IPv6 packets. The IPv6 packet contains an IPv6 header followed by the
+  payload which contains the ICMPv6 message.
 
-   From (https://tools.ietf.org/html/rfc4443)
-   The ICMPv6 messages have the following general format:
+  From (https://tools.ietf.org/html/rfc4443)
+  The ICMPv6 messages have the following general format:
 
-   0                   1                   2                   3
-   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |     Type      |     Code      |          Checksum             |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                                                               |
-   +                         Message Body                          +
-   |                                                               |
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Type      |     Code      |          Checksum             |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                                                               |
+  +                         Message Body                          +
+  |                                                               |
 
-   The type field indicates the type of the message.  Its value
-   determines the format of the remaining data.
+  The type field indicates the type of the message.  Its value
+  determines the format of the remaining data.
 
-   The code field depends on the message type.  It is used to create an
-   additional level of message granularity.
+  The code field depends on the message type.  It is used to create an
+  additional level of message granularity.
 
-   The checksum field is used to detect data corruption in the ICMPv6
-   message and parts of the IPv6 header.
- */
+  The checksum field is used to detect data corruption in the ICMPv6
+  message and parts of the IPv6 header.
+*/
 
 #[derive(FromPrimitive, Debug, PartialEq)]
 #[repr(u16)]

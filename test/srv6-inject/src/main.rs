@@ -1,6 +1,5 @@
 #![feature(box_syntax)]
 #![feature(asm)]
-#![feature(ip_constructors)]
 extern crate colored;
 extern crate fnv;
 extern crate generic_array;
@@ -24,6 +23,14 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
+
+#[macro_use]
+extern crate quote;
+#[macro_use]
+extern crate static_assertions;
+extern crate proc_macro;
+extern crate syn;
+
 mod nf;
 
 type FnvHash = BuildHasherDefault<FnvHasher>;
@@ -44,7 +51,7 @@ where
 
     let pipelines: Vec<_> = ports
         .iter()
-        .map(|port| nf(ReceiveBatch::new(port.clone()), sched).send(port.clone()))
+        .map(|port| nf(ReceiveBatch::new(port.clone())).send(port.clone()))
         .collect();
     println!("Running {} pipelines", pipelines.len());
     for pipeline in pipelines {

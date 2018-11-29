@@ -1,6 +1,16 @@
-#![feature(box_syntax)]
-#![feature(asm)]
+#![feature(
+    box_syntax,
+    asm,
+    underscore_const_names,
+    proc_macro_hygiene,
+    rustc_private
+)]
+
+extern crate check;
+extern crate galvanic_assert;
 extern crate netbricks;
+extern crate once_cell;
+
 use self::nf::*;
 use netbricks::config::{basic_opts, read_matches};
 use netbricks::interface::*;
@@ -12,6 +22,7 @@ use std::process;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+
 mod nf;
 
 fn test<T, S>(ports: Vec<T>, sched: &mut S)

@@ -1,11 +1,9 @@
 use colored::*;
 use generic_array::typenum::*;
 use generic_array::GenericArray;
-use netbricks::common::*;
 use netbricks::headers::*;
 use netbricks::interface::*;
 use netbricks::operators::*;
-use netbricks::scheduler::Scheduler;
 use netbricks::utils::*;
 use std::default::Default;
 use std::net::Ipv6Addr;
@@ -31,42 +29,16 @@ impl Default for MetaDataz {
         MetaDataz {
             flow: FlowV6::default(),
             payload_diff: 0,
-            segment_dst: Ipv6Addr::unspecified(),
+            segment_dst: Ipv6Addr::UNSPECIFIED,
         }
-    }
-}
-
-fn srh_into_packet(pkt: &mut Packet<Ipv6Header, MetaDataz>) -> Result<()> {
-    let seg0 = Ipv6Addr::from_str("fe80::4").unwrap();
-    let seg1 = Ipv6Addr::from_str("1ce:c01d:bee2:15:a5:900d:a5:11fe").unwrap();
-    let segvec = vec![seg0, seg1];
-    let insert = srh_insert!(
-            segvec,
-            pkt,
-            (
-                pkt.get_header().next_header(),
-                segvec.len() as u8 - 1,
-                0,
-                0
-            ),
-            Ipv6Header,
-            [1 => U1, 2=> U2, 3 => U3, 4 => U4, 5 => U5, 6 => U6, 7 => U7,
-             8 => U8, 9 => U9, 10 => U10, 11 => U11, 12 => U12]);
-
-    if let Some(Ok(())) = insert {
-        Ok(())
-    } else {
-        Err(ErrorKind::FailedToInsertHeader.into())
     }
 }
 
 fn srh_change_packet(
     pkt: &mut Packet<SRH<Ipv6Header>, MetaDataz>,
+    mut segvec: Vec<Ipv6Addr>,
     seg_action: NewSegmentsAction,
 ) -> Option<isize> {
-    let seg1 = Ipv6Addr::from_str("fe80::a").unwrap();
-    let mut segvec = vec![seg1];
-
     match seg_action {
         NewSegmentsAction::Append => {
             segvec.splice(0..0, pkt.get_header().segments().unwrap().iter().cloned());
@@ -93,9 +65,6 @@ fn srh_change_packet(
 #[inline]
 fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionBatch {
     parent
-        .map(box |pkt| {
-            println!("V6-old-hdr {}", format!("{}", pkt.get_header()).yellow());
-        })
         .metadata(box |pkt| {
             let v6h = pkt.get_header();
             let flow = v6h.flow().unwrap();
@@ -112,8 +81,12 @@ fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionB
         })
         .parse::<SRH<Ipv6Header>>()
         .transform(box |pkt| {
-            if let Some(payload_diff) = srh_change_packet(pkt, NewSegmentsAction::Prepend) {
-                let flow  = pkt.read_metadata().flow;
+            if let Some(payload_diff) = srh_change_packet(
+                pkt,
+                vec![Ipv6Addr::from_str("fe80::a").unwrap()],
+                NewSegmentsAction::Prepend,
+            ) {
+                let flow = pkt.read_metadata().flow;
                 let segments_left = pkt.get_header().segments_left();
                 let segments = pkt.get_header().segments().unwrap().to_vec();
 
@@ -128,10 +101,6 @@ fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionB
             }
         })
         .parse::<TcpHeader<SRH<Ipv6Header>>>()
-        .map(box |pkt| {
-            println!("TCP header {}", format!("{}", pkt.get_header()).yellow());
-        })
-        // Using reset instead of deparse b/c .deparse() is currently busted wrt to how operations work in nb.
         .reset()
         .parse::<MacHeader>()
         .parse::<Ipv6Header>()
@@ -153,82 +122,19 @@ fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionB
             v6h.set_dst(segment_dst);
             v6h.set_payload_len((curr_payload_len as i8 + payload_diff) as u16);
         })
-        .map(box |pkt| {
-            println!("V6-updated-hdr {}", format!("{}", pkt.get_header()).yellow());
-        })
         .parse::<SRH<Ipv6Header>>()
         .map(box |pkt| {
             let cache = &mut *CACHE.write().unwrap();
-            cache.entry(flow_hash(&Flows::V6(pkt.read_metadata().flow))).or_insert(
-                pkt.get_header().segments().unwrap().to_vec()
-            );
-            println!("SR-hdr {}", format!("{}", pkt.get_header()).yellow());
-        })
-        .map(box |pkt| {
-            let cache = CACHE.read().unwrap();
-            println!("Cache Cache Flow Hash: {}",
-                     format!("{:?}", *cache.get(&flow_hash(&Flows::V6(pkt.read_metadata().flow)))
-                             .unwrap()).cyan().underline());
+            cache
+                .entry(flow_hash(&Flows::V6(pkt.read_metadata().flow)))
+                .or_insert(pkt.get_header().segments().unwrap().to_vec());
         })
         .parse::<TcpHeader<SRH<Ipv6Header>>>()
-        .map(box |pkt| {
-            println!("TCP header {}", format!("{}", pkt.get_header()).yellow());
-        })
         .compose()
 }
 
-#[inline]
-fn tcp_sr_inject_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionBatch {
-    parent
-        .metadata(box |pkt| {
-            let v6h = pkt.get_header();
-
-            MetaDataz {
-                flow: v6h.flow().unwrap(),
-                ..Default::default()
-            }
-        })
-        .transform(box |pkt| {
-            if let Ok(()) = srh_into_packet(pkt) {
-                println!("SRH Inserted")
-            }
-        })
-        .filter(box |pkt| match pkt.get_header().next_header() {
-            Some(NextHeader::Routing) => true,
-            _ => false,
-        })
-        .parse::<SRH<Ipv6Header>>()
-        .metadata_mut(box |pkt| {
-            let segments_left = pkt.get_header().segments_left();
-
-            MetaDataz {
-                flow: pkt.emit_metadata::<MetaDataz>().flow,
-                segment_dst: pkt.get_header().segments().unwrap()[segments_left as usize],
-                ..Default::default()
-            }
-        })
-        .map(box |pkt| {
-            println!("SR-hdr {}", format!("{}", pkt.get_header()).green());
-        })
-        .parse::<TcpHeader<SRH<Ipv6Header>>>()
-        .map(box |pkt| {
-            println!("TCP header {}", format!("{}", pkt.get_header()).green());
-        })
-        .reset()
-        .parse::<MacHeader>()
-        .parse::<Ipv6Header>()
-        .transform(box |pkt| {
-            let new_destination = pkt.emit_metadata::<MetaDataz>().segment_dst;
-            pkt.get_mut_header().set_dst(new_destination)
-        })
-        .compose()
-}
-
-pub fn nf<T: 'static + Batch<Header = NullHeader>, S: Scheduler + Sized>(
-    parent: T,
-    sched: &mut S,
-) -> CompositionBatch {
-    let mut groups = parent
+pub fn nf<T: 'static + Batch<Header = NullHeader>>(parent: T) -> CompositionBatch {
+    let pipeline = parent
         .parse::<MacHeader>()
         .filter(box |pkt| match pkt.get_header().etype() {
             Some(EtherType::IPv6) => true,
@@ -239,18 +145,6 @@ pub fn nf<T: 'static + Batch<Header = NullHeader>, S: Scheduler + Sized>(
             Some(NextHeader::Routing) => true,
             Some(NextHeader::Tcp) => true,
             _ => false,
-        })
-        .group_by(
-            2,
-            box |pkt| match pkt.get_header().next_header().unwrap() {
-                NextHeader::Routing => 1,
-                _ => 0,
-            },
-            sched,
-        );
-
-    let srv6_inject = groups.get_group(0).unwrap();
-    let srv6 = groups.get_group(1).unwrap();
-
-    merge(vec![tcp_sr_nf(srv6), tcp_sr_inject_nf(srv6_inject)]).compose()
+        });
+    tcp_sr_nf(pipeline)
 }

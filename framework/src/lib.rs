@@ -6,15 +6,10 @@
 #![feature(slice_concat_ext)]
 #![feature(fnbox)]
 #![feature(alloc)]
-#![feature(heap_api)]
-#![feature(unique)]
 #![feature(const_fn)]
-#![feature(ip_constructors)]
 #![feature(type_ascription)]
-#![feature(tool_attributes)]
 // FIXME: Figure out if this is really the right thing here.
 #![feature(ptr_internals)]
-#![feature(iterator_step_by)]
 #![allow(safe_packed_borrows)]
 // Used for cache alignment.
 #![feature(allocator_api)]

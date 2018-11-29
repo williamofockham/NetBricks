@@ -8,8 +8,14 @@ netbricks = { path = "../../framework", features = ["performance"] }
 time = ">=0.1.0"
 generic-array = ">= 0.11.0"
 colored = ">=1.6"
-lazy_static = "*"
+lazy_static = "1.2.0"
 fnv = "*"
+quote = "*"
+syn = "*"
+
+[dependencies.static_assertions]
+version  = "0.3.1"
+features = ["nightly"]
 
 [features]
 default = []
