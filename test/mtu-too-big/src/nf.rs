@@ -3,8 +3,6 @@ use netbricks::headers::*;
 use netbricks::operators::*;
 use netbricks::scheduler::*;
 
-const MTU_THRESH: usize = 1280;
-
 struct Meta {
     newv6: Ipv6Header,
 }
@@ -15,7 +13,7 @@ pub fn nf<T: 'static + Batch<Header = NullHeader>, S: Scheduler + Sized>(
 ) -> CompositionBatch {
     let mut groups = parent.parse::<MacHeader>().group_by(
         2,
-        box |pkt| match pkt.get_payload().len() > MTU_THRESH {
+        box |pkt| match pkt.get_payload().len() as u32 > IPV6_MIN_MTU {
             true => {
                 assert_eq!(pkt.get_payload().len() + MacHeader::size(), pkt.data_len());
                 0
@@ -31,26 +29,19 @@ pub fn nf<T: 'static + Batch<Header = NullHeader>, S: Scheduler + Sized>(
     merge(vec![send_too_big(toobig), pass(otherwise)]).compose()
 }
 
-#[check]
+#[check(IPV6_MIN_MTU = 1280)]
 fn send_too_big<T: 'static + Batch<Header = MacHeader>>(parent: T) -> CompositionBatch {
     parent
-        .map(box |pkt| {
+        .pre(box |pkt| {
             ingress_check! {
-                order: [MacHeader => Ipv6Header => TcpHeader<Ipv6Header>],
-                checks: [(payload_len[Ipv6Header] as usize, gt, MTU_THRESH)]
+            input: pkt,
+            order: [MacHeader => Ipv6Header => TcpHeader<Ipv6Header>],
+            checks: [(payload_len[Ipv6Header] as u32, gt, IPV6_MIN_MTU)]
             }
-
-            //println!("HI: {}", _CHECK.lock().unwrap().get("_pktMacHeader"));
         })
         .transform(box |pkt| {
             let mach = pkt.get_mut_header();
-            // just for test purposes
-            let old_src = mach.src.clone();
-            let old_dst = mach.dst.clone();
             mach.swap_addresses();
-            // Make sure we swap macs to send TOO BIG PACKET back to source
-            assert_eq!(mach.src, old_dst);
-            assert_eq!(mach.dst, old_src)
         })
         .parse::<Ipv6Header>()
         .transform(box |pkt| {
@@ -58,7 +49,6 @@ fn send_too_big<T: 'static + Batch<Header = MacHeader>>(parent: T) -> Compositio
                 pkt.get_header().payload_len() as usize,
                 pkt.get_payload().len()
             );
-            assert!(pkt.get_header().payload_len() as u32 > IPV6_MIN_MTU);
             // create new ipv6 header from current header and store in metadata
             let ipv6h_src = pkt.get_header().src();
             let ipv6h_dst = pkt.get_header().dst();
@@ -67,8 +57,6 @@ fn send_too_big<T: 'static + Batch<Header = MacHeader>>(parent: T) -> Compositio
             ipv6h_new.set_dst(ipv6h_src);
             ipv6h_new.set_payload_len(IPV6_TOO_BIG_PAYLOAD_LEN);
             ipv6h_new.set_next_header(NextHeader::Icmp);
-            assert_eq!(ipv6h_new.src(), pkt.get_header().dst());
-            assert_eq!(ipv6h_new.dst(), pkt.get_header().src());
             pkt.write_metadata({ &Meta { newv6: ipv6h_new } }).unwrap();
         })
         // We reset and begin process of going from invalid Ipv6 packet into an
@@ -87,7 +75,6 @@ fn send_too_big<T: 'static + Batch<Header = MacHeader>>(parent: T) -> Compositio
         })
         .parse::<Ipv6Header>()
         .transform(box |pkt| {
-            assert_eq!(pkt.get_header().payload_len(), 1240);
             // Write IcmpHeader
             let icmpv6 = <Icmpv6PktTooBig<Ipv6Header>>::new();
             // push icmpc6header
@@ -115,10 +102,14 @@ fn send_too_big<T: 'static + Batch<Header = MacHeader>>(parent: T) -> Compositio
                 Protocol::Icmp,
             );
         })
-        .map(box |pkt| {
+        .post(box |pkt| {
             egress_check! {
+                input: pkt,
                 order: [MacHeader => Ipv6Header => Icmpv6PktTooBig<Ipv6Header>],
                 checks: [(checksum[Icmpv6PktTooBig], neq, checksum[TcpHeader<Ipv6Header>]),
+                         (payload_len[Ipv6Header], eq, 1240),
+                         (src[Ipv6Header], eq, dst[Ipv6Header]),
+                         (dst[Ipv6Header], eq, src[Ipv6Header]),
                          (.src[MacHeader], eq, .dst[MacHeader]),
                          (.dst[MacHeader], eq, .src[MacHeader])]
             }

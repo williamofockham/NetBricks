@@ -10,6 +10,7 @@ extern crate check;
 extern crate galvanic_assert;
 extern crate netbricks;
 extern crate once_cell;
+extern crate static_assertions;
 
 use self::nf::*;
 use netbricks::config::{basic_opts, read_matches};

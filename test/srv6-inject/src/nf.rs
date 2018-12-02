@@ -1,4 +1,3 @@
-use colored::*;
 use generic_array::typenum::*;
 use generic_array::GenericArray;
 use netbricks::headers::*;
@@ -9,6 +8,10 @@ use std::default::Default;
 use std::net::Ipv6Addr;
 use std::str::FromStr;
 use CACHE;
+
+const BITS_128_TO_BYTES: u16 = 16;
+
+use check::{check, egress_check, ingress_check};
 
 #[allow(dead_code)]
 enum NewSegmentsAction {
@@ -62,9 +65,16 @@ fn srh_change_packet(
               [1 => U1, 2=> U2, 3 => U3, 4 => U4, 5 => U5, 6 => U6, 7 => U7, 8 => U8, 9 => U9, 10 => U10, 11 => U11, 12 => U12])
 }
 
-#[inline]
+#[check]
 fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionBatch {
     parent
+        .pre(box |pkt| {
+            ingress_check! {
+                input: pkt,
+                order: [MacHeader => Ipv6Header => SRH<Ipv6Header> => TcpHeader<SRH<Ipv6Header>>],
+                checks: []
+            }
+        })
         .metadata(box |pkt| {
             let v6h = pkt.get_header();
             let flow = v6h.flow().unwrap();
@@ -97,7 +107,8 @@ fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionB
                         segment_dst: segments[segments_left as usize],
                         ..Default::default()
                     }
-                }).unwrap();
+                })
+                .unwrap();
             }
         })
         .parse::<TcpHeader<SRH<Ipv6Header>>>()
@@ -130,6 +141,13 @@ fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionB
                 .or_insert(pkt.get_header().segments().unwrap().to_vec());
         })
         .parse::<TcpHeader<SRH<Ipv6Header>>>()
+        .post(box |pkt| {
+            egress_check! {
+                input: pkt,
+                order: [MacHeader => Ipv6Header => SRH<Ipv6Header> => TcpHeader<SRH<Ipv6Header>>],
+                checks: [(payload_len[Ipv6Header], eq, payload_len[Ipv6Header] + BITS_128_TO_BYTES)]
+            }
+        })
         .compose()
 }
 

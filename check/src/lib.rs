@@ -1,9 +1,10 @@
-#![feature(proc_macro_diagnostic)]
+#![feature(proc_macro_diagnostic, custom_attribute)]
 #![recursion_limit = "128"]
+
 extern crate proc_macro;
 extern crate proc_macro2;
+extern crate proc_macro_hack;
 extern crate quote;
-extern crate static_assertions;
 #[macro_use]
 extern crate syn;
 
@@ -12,15 +13,69 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream as P2TS;
 use quote::{quote, ToTokens};
 use std::fmt;
+use syn::fold::{self, Fold};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
 use syn::token::Bracket;
-use syn::{bracketed, parenthesized, AttributeArgs, Ident, ItemFn, LitInt, Token};
+use syn::{bracketed, parenthesized, BinOp, ExprMethodCall, Ident, ItemFn, LitInt, Token};
+
+#[derive(Debug)]
+struct Checks {
+    statics: Vec<Static>,
+}
+
+#[derive(Debug)]
+struct Static {
+    left: Ident,
+    right: LitInt,
+}
+
+impl Parse for Static {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let left = input.parse::<Ident>()?;
+        input.parse::<Token![=]>()?;
+        let right = input.parse::<LitInt>()?;
+
+        Ok(Static {
+            left: left,
+            right: right,
+        })
+    }
+}
+
+impl Parse for Checks {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut statics = vec![];
+        if input.peek(Ident) && input.peek2(Token![=]) && input.peek3(LitInt) {
+            statics = Punctuated::<Static, Token![,]>::parse_terminated(&input)?
+                .into_iter()
+                .collect();
+        }
+        Ok(Checks { statics: statics })
+    }
+}
+
+impl Fold for Checks {
+    fn fold_expr_method_call(&mut self, mut m: ExprMethodCall) -> ExprMethodCall {
+        match m.method.to_string().as_ref() {
+            "pre" => {
+                m.method = Ident::new("map", Span::call_site());
+                fold::fold_expr_method_call(self, m)
+            }
+            "post" => {
+                m.method = Ident::new("map", Span::call_site());
+                fold::fold_expr_method_call(self, m)
+            }
+            _ => fold::fold_expr_method_call(self, m),
+        }
+    }
+}
 
 #[derive(Debug)]
 struct HdrType {
     hdr: Ident,
     prev_hdr: Option<Ident>,
+    sub_hdr: Option<Ident>,
 }
 
 #[derive(Debug)]
@@ -30,27 +85,45 @@ enum ValType {
 }
 
 impl ValType {
-    fn to_assert(&self, op: &Ident, is_ident: bool, is_fn: bool) -> P2TS {
-        match (op.to_string().as_str(), is_ident, is_fn) {
-            ("neq", _, true) => quote! {not(eq(r.#self()))},
-            ("neq", true, false) => quote! {not(eq(r.#self))},
-            ("neq", false, false) => quote! {not(eq(#self))},
-            ("nleq", _, true) => quote! {not(leq(r.#self()))},
-            ("nleq", true, false) => quote! {not(leq(r.#self))},
-            ("nleq", false, false) => quote! {not(leq(#self))},
-            ("ngeq", _, true) => quote! {not(geq(r.#self()))},
-            ("ngeq", true, false) => quote! {not(geq(r.#self))},
-            ("ngeq", false, false) => quote! {not(geq(#self))},
-            ("ngt", _, true) => quote! {not(gt(r.#self()))},
-            ("ngt", true, false) => quote! {not(gt(r.#self))},
-            ("ngt", false, false) => quote! {not(gt(#self))},
-            ("nlt", _, true) => quote! {not(lt(r.#self()))},
-            ("nlt", true, false) => quote! {not(lt(r.#self))},
-            ("nlt", false, false) => quote! {not(lt(#self))},
-            (_, _, true) => quote! {#op(r.#self())},
-            (_, true, false) => quote! {#op(r.#self)},
-            (_, _, _) => quote! {#op(#self)},
-        }
+    fn to_assert(
+        &self,
+        op: &Ident,
+        rhs_calc: &Option<(BinOp, ValType)>,
+        is_ident: bool,
+        is_fn: bool,
+    ) -> P2TS {
+        let extra: P2TS = if let Some(c) = rhs_calc {
+            let op = c.0;
+            let v = &c.1;
+            quote! {
+                #op #v
+            }
+        } else {
+            P2TS::new()
+        };
+
+        let ts = match (op.to_string().as_str(), is_ident, is_fn) {
+            ("neq", _, true) => quote! {not(eq(r.#self() #extra))},
+            ("neq", true, false) => quote! {not(eq(r.#self #extra))},
+            ("neq", false, false) => quote! {not(eq(#self #extra))},
+            ("nleq", _, true) => quote! {not(leq(r.#self() #extra))},
+            ("nleq", true, false) => quote! {not(leq(r.#self #extra))},
+            ("nleq", false, false) => quote! {not(leq(#self #extra))},
+            ("ngeq", _, true) => quote! {not(geq(r.#self() #extra))},
+            ("ngeq", true, false) => quote! {not(geq(r.#self #extra))},
+            ("ngeq", false, false) => quote! {not(geq(#self #extra))},
+            ("ngt", _, true) => quote! {not(gt(r.#self() #extra))},
+            ("ngt", true, false) => quote! {not(gt(r.#self #extra))},
+            ("ngt", false, false) => quote! {not(gt(#self #extra))},
+            ("nlt", _, true) => quote! {not(lt(r.#self() #extra))},
+            ("nlt", true, false) => quote! {not(lt(r.#self) #extra)},
+            ("nlt", false, false) => quote! {not(lt(#self) #extra)},
+            (_, _, true) => quote! {#op(r.#self() #extra)},
+            (_, true, false) => quote! {#op(r.#self #extra)},
+            (_, _, _) => quote! {#op(#self #extra)},
+        };
+        println!("FuckSTHI| {:#?}", ts);
+        ts
     }
 }
 
@@ -86,10 +159,12 @@ struct Check {
     loc_lhs: Option<Ident>,
     loc_rhs: Option<HdrType>,
     cast: Option<Ident>,
+    rhs_calc: Option<(BinOp, ValType)>,
 }
 
 #[derive(Debug)]
 struct Checker {
+    pkt: Option<Ident>,
     order: Vec<HdrType>,
     checks: Vec<Check>,
 }
@@ -105,11 +180,25 @@ impl Parse for HdrType {
                 Ok(HdrType {
                     hdr: hdr,
                     prev_hdr: Some(inner),
+                    sub_hdr: None,
+                })
+            } else if input.peek(Token![<]) && input.peek3(Token![<]) {
+                let _ = input.parse::<Token![<]>();
+                let inner1 = input.parse::<Ident>()?;
+                let _ = input.parse::<Token![<]>();
+                let inner2 = input.parse::<Ident>()?;
+                let _ = input.parse::<Token![>]>();
+                let _ = input.parse::<Token![>]>();
+                Ok(HdrType {
+                    hdr: hdr,
+                    prev_hdr: Some(inner1),
+                    sub_hdr: Some(inner2),
                 })
             } else {
                 Ok(HdrType {
                     hdr: hdr,
                     prev_hdr: None,
+                    sub_hdr: None,
                 })
             }
         } else {
@@ -165,7 +254,7 @@ impl Parse for Check {
         } else if contents.peek(LitInt) {
             ValType::Int(contents.parse::<LitInt>()?)
         } else {
-            panic!("")
+            panic!("Not a ValType")
         };
 
         let loc_rhs = if contents.peek(Bracket) {
@@ -180,15 +269,51 @@ impl Parse for Check {
                 Some(HdrType {
                     hdr: hdr,
                     prev_hdr: Some(inner_angle),
+                    sub_hdr: None,
+                })
+            } else if inner_rhs.peek(Token![<]) && inner_rhs.peek3(Token![<]) {
+                let _ = inner_rhs.parse::<Token![<]>();
+                let inner1 = inner_rhs.parse::<Ident>()?;
+                let _ = inner_rhs.parse::<Token![<]>();
+                let inner2 = inner_rhs.parse::<Ident>()?;
+                let _ = inner_rhs.parse::<Token![>]>();
+                let _ = inner_rhs.parse::<Token![>]>();
+                Some(HdrType {
+                    hdr: hdr,
+                    prev_hdr: Some(inner1),
+                    sub_hdr: Some(inner2),
                 })
             } else {
                 Some(HdrType {
                     hdr: hdr,
                     prev_hdr: None,
+                    sub_hdr: None,
                 })
             }
         } else {
             is_fun_rhs = false;
+            None
+        };
+
+        let calc = if contents.peek(Token![+]) {
+            Some(contents.parse().map(BinOp::Add)?)
+        } else if contents.peek(Token![-]) {
+            Some(contents.parse().map(BinOp::Sub)?)
+        } else if contents.peek(Token![*]) {
+            Some(contents.parse().map(BinOp::Mul)?)
+        } else if contents.peek(Token![/]) {
+            Some(contents.parse().map(BinOp::Div)?)
+        } else {
+            None
+        };
+
+        println!("JIM {:#?}", calc);
+
+        let rhs_calc = if calc.is_some() && contents.peek(LitInt) {
+            Some((calc.unwrap(), ValType::Int(contents.parse::<LitInt>()?)))
+        } else if calc.is_some() && contents.peek(Ident) {
+            Some((calc.unwrap(), ValType::Val(contents.parse::<Ident>()?)))
+        } else {
             None
         };
 
@@ -201,6 +326,7 @@ impl Parse for Check {
             op: op,
             val: val,
             cast: cast,
+            rhs_calc: rhs_calc,
         })
     }
 }
@@ -209,11 +335,18 @@ impl Parse for Checker {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut hdr_order: Vec<HdrType> = vec![];
         let mut checks: Vec<Check> = vec![];
+        let mut pkt: Option<Ident> = None;
 
         loop {
             if input.peek(Ident) && input.peek2(Token![:]) {
                 let ident = input.parse::<Ident>()?;
                 match ident.to_string().as_str() {
+                    "input" => {
+                        input.parse::<Token![:]>()?;
+                        if input.peek(Ident) {
+                            pkt = Some(input.parse::<Ident>()?)
+                        }
+                    }
                     "order" => {
                         input.parse::<Token![:]>()?;
                         if input.peek(Bracket) {
@@ -248,9 +381,10 @@ impl Parse for Checker {
             }
         }
 
-        //println!("Fuck: {:#?}, {:#?}", hdr_order, checks);
+        println!("Fuck| {:#?}, {:#?}", hdr_order, checks);
 
         Ok(Checker {
+            pkt: pkt,
             order: hdr_order,
             checks: checks,
         })
@@ -259,8 +393,7 @@ impl Parse for Checker {
 
 #[proc_macro]
 pub fn ingress_check(input: TokenStream) -> TokenStream {
-    let Checker { order, checks } = parse_macro_input!(input as Checker);
-
+    let Checker { pkt, order, checks } = parse_macro_input!(input as Checker);
     // Error Checks
     // TODO: Include spans
     if order.is_empty() {
@@ -273,13 +406,17 @@ pub fn ingress_check(input: TokenStream) -> TokenStream {
     let runner = order
         .iter()
         .enumerate()
-        .map(|(i, HdrType { hdr, prev_hdr })| {
+        .map(|(i, HdrType { hdr, prev_hdr, sub_hdr })| {
             let var = Ident::new(&format!("_pkt{}", hdr), Span::call_site());
             let obj = Ident::new(&format!("_pkt{}", curr_type), Span::call_site());
             let hget = Ident::new(&format!("{}_hdr", var), Span::call_site());
             let hget_payload = Ident::new(&format!("{}_payload", hget), Span::call_site());
             let hdr_type = if let Some(prev) = prev_hdr {
-                quote!{#hdr<#prev>}
+                if let Some(sub) = sub_hdr {
+                    quote!{#hdr<#prev<#sub>>}
+                } else {
+                    quote!{#hdr<#prev>}
+                }
             } else {
                 quote!{#hdr}
             };
@@ -293,44 +430,44 @@ pub fn ingress_check(input: TokenStream) -> TokenStream {
 
             let checks = checks.iter().map(
                 |Check {
-                     is_fn_lhs,
-                     call,
-                     op,
-                     val,
-                     loc_lhs,
-                     cast,
+                    is_fn_lhs,
+                    call,
+                    op,
+                    val,
+                    loc_lhs,
+                    cast,
                      ..
                  }| {
                     if let Some(loc) = loc_lhs {
                         if loc == hdr {
-                            let rhs = val.to_assert(op, false, false);
+                            let rhs = val.to_assert(op, &None, false, false);
 
                             if let Some(c) = cast {
                                 if *is_fn_lhs {
                                     quote! {
-                                        assert_that!(&(#hget.#call() as #c), #rhs);
+                                        expect_that!(&(#hget.#call() as #c), #rhs);
                                     }
                                 } else {
                                     quote! {
-                                        assert_that!(&(#hget.#call as #c), #rhs);
+                                        expect_that!(&(#hget.#call as #c), #rhs);
                                     }
                                 }
                             } else {
                                 if *is_fn_lhs {
                                     quote! {
-                                        assert_that!(&#hget.#call(), #rhs);
+                                        expect_that!(&#hget.#call(), #rhs);
                                     }
                                 } else {
                                     quote! {
-                                        assert_that!(&#hget.#call, #rhs);
+                                        expect_that!(&#hget.#call, #rhs);
                                     }
                                 }
                             }
                         } else {
-                            quote! {}
+                            P2TS::new()
                         }
                     } else {
-                        quote! {}
+                        P2TS::new()
                     }
                 },
             );
@@ -341,6 +478,18 @@ pub fn ingress_check(input: TokenStream) -> TokenStream {
 
             let stmt = if i > 0 {
                 if let Some(h) = prev_hdr {
+                    if let Some(hs) = sub_hdr {
+                        quote! {
+                            let #var = #obj.parse_header::<#hdr<#h<#hs>>>();
+                            {
+                                #get_header
+                                {
+                                    #save
+                                }
+                                #({#checks})*
+                            }
+                        }
+                    } else {
                     quote! {
                         let #var = #obj.parse_header::<#hdr<#h>>();
                         {
@@ -350,6 +499,7 @@ pub fn ingress_check(input: TokenStream) -> TokenStream {
                             }
                             #({#checks})*
                         }
+                    }
                     }
                 } else {
                     quote! {
@@ -383,12 +533,12 @@ pub fn ingress_check(input: TokenStream) -> TokenStream {
 
     let expanded = if cfg!(debug_assertions) {
         quote! {
-        let #init_var = pkt.clone().reset();
-        #(#runner)*
-        ()
+            let #init_var = #pkt.clone().reset();
+            #(#runner)*
+            ()
         }
     } else {
-        quote! {}
+        P2TS::new()
     };
 
     TokenStream::from(expanded)
@@ -396,7 +546,13 @@ pub fn ingress_check(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn egress_check(input: TokenStream) -> TokenStream {
-    let Checker { order, checks } = parse_macro_input!(input as Checker);
+    let Checker { pkt, order, checks } = parse_macro_input!(input as Checker);
+
+    // Error Checks
+    // TODO: Include spans
+    if order.is_empty() {
+        // throw error
+    }
 
     let mut curr_type: &Ident = &order.first().unwrap().hdr;
     let init_var = Ident::new("_pkt", Span::call_site());
@@ -404,33 +560,40 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
     let runner = order
         .iter()
         .enumerate()
-        .map(|(i, HdrType { hdr, prev_hdr })| {
+        .map(|(i, HdrType { hdr, prev_hdr, sub_hdr})| {
             let var = Ident::new(&format!("_pkt{}", hdr), Span::call_site());
             let obj = Ident::new(&format!("_pkt{}", curr_type), Span::call_site());
             let hget = Ident::new(&format!("{}_hdr", var), Span::call_site());
 
             let checks = checks.iter().map(
                 |Check {
-                     is_fn_lhs,
-                     is_fn_rhs,
-                     call,
-                     op,
-                     val,
-                     loc_lhs,
-                     loc_rhs,
-                     cast,
+                    is_fn_lhs,
+                    is_fn_rhs,
+                    call,
+                    op,
+                    val,
+                    loc_lhs,
+                    loc_rhs,
+                    cast,
+                    rhs_calc
                  }| {
                     if let Some(loc) = loc_lhs {
                         if loc == hdr {
-                            let q = if let Some(HdrType {hdr: loc_rhs_hdr, prev_hdr: loc_rhs_prev}) = loc_rhs {
-                                let rhs = Ident::new(
+                            let q = if let Some(HdrType {hdr: loc_rhs_hdr, prev_hdr: loc_rhs_prev, sub_hdr: loc_rhs_sub}) = loc_rhs {
+                                let rhs_var = Ident::new(
                                     &format!("{}", loc_rhs_hdr).to_lowercase(),
                                     Span::call_site(),
                                 );
 
                                 let rhs_type = if let Some(rhs_prev_type) = loc_rhs_prev {
-                                    quote! {
-                                        #loc_rhs_hdr<#rhs_prev_type>
+                                    if let Some(rhs_sub_type) = loc_rhs_sub {
+                                        quote!{
+                                            #loc_rhs_hdr<#rhs_prev_type<#rhs_sub_type>>
+                                        }
+                                    } else {
+                                        quote! {
+                                            #loc_rhs_hdr<#rhs_prev_type>
+                                        }
                                     }
                                 } else {
                                     quote! {
@@ -438,10 +601,10 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
                                     }
                                 };
                                 (
-                                    Some(rhs.clone()),
+                                    Some(rhs_var.clone()),
                                     quote! {
                                         let m = _CHECK.lock().unwrap();
-                                        let #rhs: Option<#rhs_type> = match m.get(stringify!(#loc_rhs_hdr)) {
+                                        let #rhs_var: Option<#rhs_type> = match m.get(stringify!(#loc_rhs_hdr)) {
                                             Some(v) => {
                                                 let _h: #rhs_type = unsafe { std::ptr::read(v.as_ptr() as *const _) };
                                                 Some(_h)
@@ -451,7 +614,7 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
                                     },
                                 )
                             } else {
-                                (None, quote! {})
+                                (None, P2TS::new())
                             };
 
                             let qc = if let Some(c) = cast {
@@ -464,67 +627,67 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
                                 let lhs = qc.1;
                                 let _rhs = q.0.unwrap();
                                 let m = q.1;
-                                let rhs = val.to_assert(op, *is_fn_rhs, *is_fn_rhs);
+                                let rhs = val.to_assert(op, rhs_calc, *is_fn_rhs, *is_fn_rhs);
                                 quote! {
                                     #m
                                     if let Some(r) = #_rhs {
-                                        assert_that!(&(#lhs), #rhs);
+                                        expect_that!(&(#lhs), #rhs);
                                     }
                                 }
                             } else if *is_fn_lhs && !*is_fn_rhs {
                                 let lhs = qc.1;
                                 let is_field = q.0.is_some();
-                                let rhs = val.to_assert(op, is_field, *is_fn_rhs);
+                                let rhs = val.to_assert(op, rhs_calc, is_field, *is_fn_rhs);
                                 if is_field {
                                     let _rhs = q.0.unwrap();
                                     let m = q.1;
                                     quote! {
                                         #m
                                         if let Some(r) = #_rhs {
-                                            assert_that!(&(#lhs), #rhs);
+                                            expect_that!(&(#lhs), #rhs);
                                         }
 
                                     }
                                 } else {
                                     quote! {
-                                        assert_that!(&(#lhs), #rhs);
+                                        expect_that!(&(#lhs), #rhs);
                                     }
                                 }
                             } else if !*is_fn_lhs && *is_fn_rhs {
                                 let lhs = qc.0;
                                 let _rhs = q.0.unwrap();
                                 let m = q.1;
-                                let rhs = val.to_assert(op, *is_fn_rhs, *is_fn_rhs);
+                                let rhs = val.to_assert(op, rhs_calc, *is_fn_rhs, *is_fn_rhs);
                                 quote! {
                                     #m
                                     if let Some(r) = #_rhs {
-                                        assert_that!(&(#lhs), #rhs);
+                                        expect_that!(&(#lhs), #rhs);
                                     }
                                 }
                             } else {
                                 let lhs = qc.0;
                                 let is_field = q.0.is_some();
-                                let rhs = val.to_assert(op, is_field, *is_fn_rhs);
+                                let rhs = val.to_assert(op, rhs_calc, is_field, *is_fn_rhs);
                                 if is_field {
                                     let _rhs = q.0.unwrap();
                                     let m = q.1;
                                     quote! {
                                         #m
                                         if let Some(r) = #_rhs {
-                                            assert_that!(&(#lhs), #rhs);
+                                            expect_that!(&(#lhs), #rhs);
                                         }
                                     }
                                 } else {
                                     quote! {
-                                        assert_that!(&(#lhs), #rhs);
+                                        expect_that!(&(#lhs), #rhs);
                                     }
                                 }
                             }
                         } else {
-                            quote! {}
+                            P2TS::new()
                         }
                     } else {
-                        quote! {}
+                        P2TS::new()
                     }
                 },
             );
@@ -535,11 +698,21 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
 
             let stmt = if i > 0 {
                 if let Some(h) = prev_hdr {
-                    quote! {
-                        let #var = #obj.parse_header::<#hdr<#h>>();
-                        {
-                            #get_header
-                            #({#checks})*
+                    if let Some(hs) = sub_hdr {
+                        quote! {
+                            let #var = #obj.parse_header::<#hdr<#h<#hs>>>();
+                            {
+                                #get_header
+                                #({#checks})*
+                            }
+                        }
+                    } else {
+                        quote! {
+                            let #var = #obj.parse_header::<#hdr<#h>>();
+                            {
+                                #get_header
+                                #({#checks})*
+                            }
                         }
                     }
                 } else {
@@ -567,12 +740,13 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
 
     let expanded = if cfg!(debug_assertions) {
         quote! {
-            let #init_var = pkt.clone().reset();
+            let #init_var = #pkt.clone().reset();
             #(#runner)*
+            _CHECK.lock().unwrap().clear();
             ()
         }
     } else {
-        quote! {}
+        P2TS::new()
     };
 
     TokenStream::from(expanded)
@@ -580,15 +754,16 @@ pub fn egress_check(input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn check(args: TokenStream, input: TokenStream) -> TokenStream {
-    let _a = parse_macro_input!(args as AttributeArgs);
-    let _input = parse_macro_input!(input as ItemFn);
+    let mut _args = parse_macro_input!(args as Checks);
+    let input = parse_macro_input!(input as ItemFn);
 
     let chk_map = quote! {
         use std::{collections::HashMap, sync::Mutex};
         use once_cell::sync::{Lazy, OnceCell};
         use once_cell::sync_lazy;
-        use galvanic_assert::assert_that;
+        use galvanic_assert::{expect_that, get_expectation_for};
         use galvanic_assert::matchers::*;
+        use static_assertions::const_assert_eq;
 
         static _CHECK: Lazy<Mutex<HashMap<&'static str, Vec<u8>>>> = sync_lazy! {
             let mut m = HashMap::new();
@@ -597,15 +772,42 @@ pub fn check(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let expanded = if cfg!(debug_assertions) {
+        let _input = _args.fold_item_fn(input);
+
+        let statics = _args.statics.into_iter().map(|s| {
+            let l = &s.left;
+            let r = &s.right;
+            quote! {
+                const_assert_eq!(#l, #r);
+            }
+        });
+
         quote! {
+            #(#statics)*
             #chk_map
-
             #_input
-
         }
     } else {
+        let statics = _args.statics.into_iter().map(|s| {
+            let l = &s.left;
+            let r = &s.right;
+            quote! {
+                const_assert_eq!(#l, #r);
+            }
+        });
+
+        let includes = if statics.len() > 0 {
+            quote! {
+                use static_assertions::const_assert_eq;
+            }
+        } else {
+            P2TS::new()
+        };
+
         quote! {
-            #_input
+            #includes
+            #(#statics)*
+            #input
         }
     };
 

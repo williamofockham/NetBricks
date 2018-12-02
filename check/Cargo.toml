@@ -6,12 +6,11 @@ authors = ["William of Ockham <Occam_Engineering@comcast.com>"]
 [dependencies]
 time = ">=0.1.0"
 quote = "*"
-syn = { version = "0.15.21", features = ["full", "extra-traits"] }
+syn = { version = "0.15.21", features = ["full", "extra-traits", "fold"] }
 proc-macro2 = { version = "*", features = ["nightly"] }
-
-[dependencies.static_assertions]
-version  = "0.3.1"
-features = ["nightly"]
+proc-macro-hack = "0.5"
+once_cell = "0.1.6"
+galvanic-assert = "0.8"
 
 [lib]
 proc-macro = true

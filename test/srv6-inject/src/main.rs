@@ -1,8 +1,17 @@
-#![feature(box_syntax)]
-#![feature(asm)]
-extern crate colored;
+#![feature(
+    box_syntax,
+    asm,
+    underscore_const_names,
+    proc_macro_hygiene,
+    rustc_private
+)]
+
+extern crate check;
 extern crate fnv;
+extern crate galvanic_assert;
 extern crate generic_array;
+extern crate once_cell;
+extern crate static_assertions;
 #[macro_use]
 extern crate netbricks;
 #[macro_use]
@@ -23,13 +32,6 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
-
-#[macro_use]
-extern crate quote;
-#[macro_use]
-extern crate static_assertions;
-extern crate proc_macro;
-extern crate syn;
 
 mod nf;
 
