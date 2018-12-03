@@ -12,6 +12,8 @@ if [[ -z ${RUST_BACKTRACE} ]] || [[ RUST_BACKTRACE = true ]] || [[ RUST_BACKTRAC
     export RUST_BACKTRACE="RUST_BACKTRACE=1 "
 fi
 
+export RUSTC_WRAPPER=sccache
+
 echo "Current Cargo Incremental Setting: ${CARGO_INCREMENTAL}"
 echo "Current Rust Backtrace Setting: ${RUST_BACKTRACE}"
 

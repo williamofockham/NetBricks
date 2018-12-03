@@ -102,7 +102,7 @@ impl ValType {
             P2TS::new()
         };
 
-        let ts = match (op.to_string().as_str(), is_ident, is_fn) {
+        match (op.to_string().as_str(), is_ident, is_fn) {
             ("neq", _, true) => quote! {not(eq(r.#self() #extra))},
             ("neq", true, false) => quote! {not(eq(r.#self #extra))},
             ("neq", false, false) => quote! {not(eq(#self #extra))},
@@ -121,9 +121,7 @@ impl ValType {
             (_, _, true) => quote! {#op(r.#self() #extra)},
             (_, true, false) => quote! {#op(r.#self #extra)},
             (_, _, _) => quote! {#op(#self #extra)},
-        };
-        println!("FuckSTHI| {:#?}", ts);
-        ts
+        }
     }
 }
 
@@ -307,8 +305,6 @@ impl Parse for Check {
             None
         };
 
-        println!("JIM {:#?}", calc);
-
         let rhs_calc = if calc.is_some() && contents.peek(LitInt) {
             Some((calc.unwrap(), ValType::Int(contents.parse::<LitInt>()?)))
         } else if calc.is_some() && contents.peek(Ident) {
@@ -380,8 +376,6 @@ impl Parse for Checker {
                 input.parse::<Token![,]>()?;
             }
         }
-
-        println!("Fuck| {:#?}, {:#?}", hdr_order, checks);
 
         Ok(Checker {
             pkt: pkt,
