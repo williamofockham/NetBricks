@@ -13,6 +13,9 @@ extern crate generic_array;
 extern crate once_cell;
 extern crate static_assertions;
 #[macro_use]
+extern crate flamer;
+extern crate flame;
+#[macro_use]
 extern crate netbricks;
 #[macro_use]
 extern crate lazy_static;

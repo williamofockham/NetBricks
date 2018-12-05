@@ -7,7 +7,9 @@
 )]
 
 extern crate check;
+extern crate flame;
 extern crate galvanic_assert;
+extern crate log_panics;
 extern crate netbricks;
 extern crate once_cell;
 extern crate static_assertions;
@@ -44,6 +46,8 @@ where
 }
 
 fn main() {
+    log_panics::init();
+
     let mut opts = basic_opts();
     opts.optopt(
         "",

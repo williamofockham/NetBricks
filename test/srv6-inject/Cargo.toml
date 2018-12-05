@@ -12,6 +12,8 @@ fnv = "*"
 check = { path = "../../check" }
 once_cell = "0.1.6"
 galvanic-assert = "0.8"
+flame = "0.2.2"
+flamer = "0.3"
 
 [dependencies.static_assertions]
 version  = "0.3.1"

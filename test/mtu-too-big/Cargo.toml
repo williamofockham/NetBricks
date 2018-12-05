@@ -9,6 +9,8 @@ check = { path = "../../check" }
 time = ">=0.1.0"
 once_cell = "0.1.6"
 galvanic-assert = "0.8"
+flame = "0.2.2"
+log-panics = "2.0.0"
 
 [dependencies.static_assertions]
 version  = "0.3.1"
