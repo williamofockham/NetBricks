@@ -65,7 +65,7 @@ fn srh_change_packet(
               [1 => U1, 2=> U2, 3 => U3, 4 => U4, 5 => U5, 6 => U6, 7 => U7, 8 => U8, 9 => U9, 10 => U10, 11 => U11, 12 => U12])
 }
 
-#[check]
+#[check(BITS_128_TO_BYTES = 16)]
 fn tcp_sr_nf<T: 'static + Batch<Header = Ipv6Header>>(parent: T) -> CompositionBatch {
     parent
         .pre(box |pkt| {

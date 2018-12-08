@@ -138,7 +138,7 @@ fn send_too_big<T: 'static + Batch<Header = MacHeader>>(parent: T) -> Compositio
                 checks: [(checksum[Icmpv6PktTooBig], neq, checksum[TcpHeader<Ipv6Header>]),
                          (payload_len[Ipv6Header], eq, 1240),
                          (src[Ipv6Header], eq, dst[Ipv6Header]),
-                         (dst[Ipv6Header], eq, src[Ipv6Header]),
+                         (dst[Ipv6Header], eq, dst[Ipv6Header]),
                          (.src[MacHeader], eq, .dst[MacHeader]),
                          (.dst[MacHeader], eq, .src[MacHeader])
                 ]

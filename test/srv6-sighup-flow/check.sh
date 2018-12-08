@@ -8,7 +8,8 @@ NC='\033[0m'
 echo -e "${C}RUNNING: $TEST_NAME${NC}"
 
 nohup ../../build.sh run $TEST_NAME -p $PORT_OPTIONS1 -c 1 --dur 5 &
-sleep 1
+# Extra time to load the signaler
+sleep 3
 PID=`pidof srv6-sighup-flow`
 kill -HUP "$PID"
 sleep 1
