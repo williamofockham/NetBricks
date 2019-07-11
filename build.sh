@@ -16,11 +16,17 @@ fi
 echo "Current Cargo Incremental Setting: ${CARGO_INCREMENTAL}"
 echo "Current Rust Backtrace Setting: ${RUST_BACKTRACE}"
 
+# Display
+C='\033[1;34m'
+NC='\033[0m'
+
 CARGO_LOC=`which cargo || true`
 export CARGO=${CARGO_PATH-"${CARGO_LOC}"}
 CLIPPY_ARGS="--all-targets --all-features -- -D clippy::wildcard_dependencies -D clippy::cargo_common_metadata -D warnings"
 
-DPDK_VER=17.08
+CLANG_FMT=`which clang-format || true`
+
+DPDK_VER=18.11.2
 DPDK_HOME="/opt/dpdk/dpdk-stable-${DPDK_VER}"
 DPDK_LD_PATH="${DPDK_HOME}/build/lib"
 DPDK_CONFIG_FILE=${DPDK_CONFIG_FILE-"${DPDK_HOME}/config/common_linuxapp"}
@@ -233,8 +239,11 @@ case $TASK in
         echo "export LD_LIBRARY_PATH=\"${NATIVE_LIB_PATH}:${TOOLS_BASE}:${LD_LIBRARY_PATH}\""
         ;;
     fmt)
+        ${CLANG_FMT} -i $NATIVE_LIB_PATH/*.c $NATIVE_LIB_PATH/include/*.h $NATIVE_LIB_PATH/test/*.c
+
         pushd $BASE_DIR/framework
         ${CARGO} fmt
+        ${CLANG_FMT} -i src/native_include/*.h
         popd
 
         for example in ${examples[@]}; do
@@ -289,7 +298,7 @@ case $TASK in
             echo "We will build & run these tests:"
             for testname in ${examples[@]}; do
                 if [ -f $BASE_DIR/$testname/check.sh ]; then
-                    echo $testname
+                    echo -e "${C}$testname${NC}"
                 fi
             done
             echo "...and all unit and property-based tests"
@@ -302,13 +311,14 @@ case $TASK in
             for testname in ${examples[@]}; do
                 if [ -f $BASE_DIR/$testname/check.sh ]; then
                     pushd $BASE_DIR/$testname
+                    echo -e "${C}RUNNING: $testname${NC}"
                     ./check.sh
                     popd
                 fi
             done
         else
             test=$2
-            echo "Running ${test}"
+            echo -e "${C}RUNNING: $test${NC}"
             pushd $BASE_DIR/examples/$test
             ./check.sh
             popd

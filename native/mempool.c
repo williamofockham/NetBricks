@@ -343,8 +343,8 @@ int mbuf_free_bulk(mbuf_array_t array, int cnt) {
         }
     }
 
-    /* NOTE: it seems that zeroing the refcnt of mbufs is not necessary.
-     * (allocators will reset them) */
+    // NOTE: it seems that zeroing the refcnt of mbufs is not necessary.
+    //       (allocators will reset them) */
     rte_mempool_put_bulk(_pool, (void **)array, cnt);
     return 0;
 

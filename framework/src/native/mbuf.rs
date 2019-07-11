@@ -114,13 +114,13 @@ impl MBuf {
 
     #[inline]
     pub fn refcnt(&self) -> u16 {
-        unsafe { self.__bindgen_anon_1.refcnt }
+        unsafe { self.__bindgen_anon_2.refcnt }
     }
 
     #[inline]
     pub fn reference(&mut self) {
         unsafe {
-            self.__bindgen_anon_1.refcnt += 1;
+            self.__bindgen_anon_2.refcnt += 1;
         }
     }
 }

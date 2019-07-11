@@ -56,4 +56,4 @@ features = ["default-code-coverage"]
 
 [build-dependencies]
 # Use Bindgen to generate DPDK structures.
-bindgen = "0.49"
+bindgen = "0.50"

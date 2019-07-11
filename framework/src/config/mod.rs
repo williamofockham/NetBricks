@@ -129,7 +129,7 @@ lazy_static! {
 struct CommandLine();
 
 impl Source for CommandLine {
-    fn clone_into_box(&self) -> Box<Source + Send + Sync> {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
         Box::new((*self).clone())
     }
 
@@ -207,7 +207,7 @@ impl Source for CommandLine {
     }
 }
 
-static DEFAULT_TOML: &'static str = r#"
+static DEFAULT_TOML: &str = r#"
     name = "netbricks"
     secondary = false
     primary_core = 0

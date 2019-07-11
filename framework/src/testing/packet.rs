@@ -78,10 +78,10 @@ pub enum field {
 ///
 /// When converting default value to proptest strategy, if the type of the
 /// value does not match the field type, the conversion will `panic`.
-pub struct StrategyMap(HashMap<field, Box<Any>>);
+pub struct StrategyMap(HashMap<field, Box<dyn Any>>);
 
 impl StrategyMap {
-    pub fn new(inner: HashMap<field, Box<Any>>) -> Self {
+    pub fn new(inner: HashMap<field, Box<dyn Any>>) -> Self {
         StrategyMap(inner)
     }
 
@@ -154,7 +154,7 @@ macro_rules! fieldmap {
     ($($key:expr => $value:expr),*) => {
         {
             #[allow(unused_mut)]
-            let mut hashmap = ::std::collections::HashMap::<$crate::testing::field, Box<::std::any::Any>>::new();
+            let mut hashmap = ::std::collections::HashMap::<$crate::testing::field, Box<dyn(::std::any::Any)>>::new();
             $(
                 hashmap.insert($key, Box::new($value));
             )*

@@ -321,8 +321,21 @@ impl PmdPort {
         csumoffload: bool,
     ) -> Result<Arc<PmdPort>> {
         let cannonical_spec = PmdPort::cannonicalize_pci(spec);
-        let port = unsafe { zcsi::attach_pmd_device((cannonical_spec[..]).as_ptr()) };
-        if port >= 0 {
+        let mut ports: Vec<i32> = Vec::with_capacity(16);
+        let rc =
+            unsafe { zcsi::attach_device((cannonical_spec[..]).as_ptr(), ports.as_mut_ptr(), 16) };
+        if rc >= 0 {
+            unsafe {
+                ports.set_len(rc as usize);
+            }
+            if rc > 1 {
+                info!(
+                    "dpdk detected {} ports for spec {}, using first port with id {}",
+                    rc, spec, ports[0]
+                );
+            }
+
+            let port = ports[0];
             info!("Going to try and use port {}", port);
             PmdPort::init_dpdk_port(
                 port,

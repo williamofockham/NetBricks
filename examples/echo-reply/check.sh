@@ -1,11 +1,6 @@
 #!/bin/bash
 TEST_NAME=echo-reply
 
-C='\033[1;34m'
-NC='\033[0m'
-
-echo -e "${C}RUNNING: $TEST_NAME${NC}"
-
 PORT_OPTIONS1="dpdk:eth_pcap0,rx_pcap=data/echo_request.pcap,tx_pcap=/tmp/out.pcap"
 
 ../../build.sh run $TEST_NAME -p $PORT_OPTIONS1 -c 1 -d 1

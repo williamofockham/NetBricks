@@ -1,11 +1,6 @@
 #!/bin/bash
 TEST_NAME=ipv4or6
 
-C='\033[1;34m'
-NC='\033[0m'
-
-echo -e "${C}RUNNING: $TEST_NAME${NC}"
-
 PORT_OPTIONS1="dpdk:eth_pcap0,rx_pcap=data/ipv4_tcp.pcap,tx_pcap=/tmp/out.pcap"
 PORT_OPTIONS2="dpdk:eth_pcap0,rx_pcap=data/ipv6_tcp.pcap,tx_pcap=/tmp/out.pcap"
 

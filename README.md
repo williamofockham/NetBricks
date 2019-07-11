@@ -11,7 +11,7 @@ Up and Running
 NetBricks can built within a Docker container. In this case, you do not need to
 install any of the dependencies, and the final product can be run the same.
 However to run NetBricks you still need to be on a machine or VM that is
-correctly configured to run [DPDK](https://www.dpdk.org/) (version 17.08.1).
+correctly configured to run [DPDK](https://www.dpdk.org/) (version 18.11.2).
 
 If you use our vagrant-based Developer environment, all DPDK configuration is
 done for you. We also include the [MoonGen](//github.com/williamofockham/MoonGen) traffic generator and the

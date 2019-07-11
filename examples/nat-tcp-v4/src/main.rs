@@ -107,7 +107,8 @@ where
 }
 
 fn nat(packet: RawPacket, nat_ip: Ipv4Addr) -> Result<Tcp<Ipv4>> {
-    let ethernet = packet.parse::<Ethernet>()?;
+    let mut ethernet = packet.parse::<Ethernet>()?;
+    ethernet.swap_addresses();
     let v4 = ethernet.parse::<Ipv4>()?;
     let mut tcp = v4.parse::<Tcp<Ipv4>>()?;
     let flow = tcp.flow();

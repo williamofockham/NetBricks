@@ -1,21 +1,16 @@
 #!/bin/bash
 TEST_NAME=signals
 
-C='\033[1;34m'
-NC='\033[0m'
-
-echo -e "${C}RUNNING: $TEST_NAME${NC}"
-
 PORT_OPTIONS="dpdk:eth_af_packet,iface=lo"
 
 nohup ../../build.sh run $TEST_NAME -p $PORT_OPTIONS -c 1 &
 # Extra time to load the signaler
-sleep 3
+sleep 5
 PID=`pidof signals`
 kill -HUP "$PID"
-sleep 1
+sleep 3
 kill -TERM "$PID"
-sleep 1
+sleep 3
 
 echo ----
 

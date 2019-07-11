@@ -38,8 +38,18 @@ fn main() {
 
     let bindings = bindgen::Builder::default()
         .header(header_path.to_str().unwrap())
+        .whitelist_type(r"(rte|cmdline|ether|eth|arp|vlan|vxlan)_.*")
+        .whitelist_function(r"(_rte|rte|cmdline|lcore|ether|eth|arp|is)_.*")
+        .whitelist_var(
+            r"(RTE|CMDLINE|ETHER|ARP|VXLAN|BONDING|LCORE|MEMPOOL|ARP|PKT|EXT_ATTACHED|IND_ATTACHED|lcore|rte|cmdline|per_lcore)_.*",
+        )
+        .derive_copy(true)
+        .derive_debug(true)
+        .derive_default(true)
+        .derive_partialeq(true)
         .rust_target(bindgen::RustTarget::Nightly)
         .clang_args(vec!["-I", dpdk_include_path.to_str().unwrap()].iter())
+        .rustfmt_bindings(true)
         .generate()
         .expect("Unable to generate DPDK bindings");
     let out_dir = env::var("OUT_DIR").unwrap();

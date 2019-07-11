@@ -41,8 +41,11 @@ extern "C" {
     pub fn init_bess_eth_ring(ifname: *const c_char, core: i32) -> i32;
     pub fn init_ovs_eth_ring(iface: i32, core: i32) -> i32;
     pub fn find_port_with_pci_address(pciaddr: *const c_char) -> i32;
-    pub fn attach_pmd_device(dev: *const c_char) -> i32;
-    // FIXME: Generic PMD info
+    pub fn attach_device(
+        identifier: *const c_char,
+        port_id_ptr: *mut i32,
+        max_port_ids: i32,
+    ) -> i32;
     pub fn max_rxqs(port: i32) -> i32;
     pub fn max_txqs(port: i32) -> i32;
     pub fn mbuf_alloc() -> *mut MBuf;

@@ -112,10 +112,10 @@ pub fn new_cp_mergeable_store<T: AddAssign<T> + Default + Clone>(
             delay,
             channel: sender,
         },
-        box CpMergeableStoreControlPlane {
+        Box::new(CpMergeableStoreControlPlane {
             // FIXME: Don't need this to be quite this big?
             flow_counters: HashMap::with_capacity_and_hasher(VEC_SIZE, Default::default()),
             channel: receiver,
-        },
+        }),
     )
 }

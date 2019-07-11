@@ -1,11 +1,6 @@
 #!/bin/bash
 TEST_NAME=mtu-too-big
 
-C='\033[1;34m'
-NC='\033[0m'
-
-echo -e "${C}RUNNING: $TEST_NAME${NC}"
-
 PORT_OPTIONS1="dpdk:eth_pcap0,rx_pcap=data/in_bounds.pcap,tx_pcap=/tmp/out.pcap"
 PORT_OPTIONS2="dpdk:eth_pcap0,rx_pcap=data/over_bounds.pcap,tx_pcap=/tmp/out.pcap"
 

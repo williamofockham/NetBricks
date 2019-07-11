@@ -4,7 +4,7 @@ use std::default::Default;
 
 /// Used to keep stats about each pipeline and eventually grant tokens, etc.
 struct Runnable {
-    pub task: Box<Executable>,
+    pub task: Box<dyn Executable>,
     pub dependencies: Vec<usize>,
 }
 
@@ -12,7 +12,7 @@ impl Runnable {
     pub fn from_task<T: Executable + 'static>(mut task: T) -> Runnable {
         let deps = task.dependencies();
         Runnable {
-            task: box task,
+            task: Box::new(task),
             dependencies: deps,
         }
     }

@@ -8,7 +8,7 @@ use utils;
 
 /// Used to keep stats about each pipeline and eventually grant tokens, etc.
 struct Runnable {
-    pub task: Box<Executable>,
+    pub task: Box<dyn Executable>,
     pub cycles: u64,
     pub last_run: u64,
 }
@@ -16,12 +16,12 @@ struct Runnable {
 impl Runnable {
     pub fn from_task<T: Executable + 'static>(task: T) -> Runnable {
         Runnable {
-            task: box task,
+            task: Box::new(task),
             cycles: 0,
             last_run: utils::rdtsc_unsafe(),
         }
     }
-    pub fn from_boxed_task(task: Box<Executable>) -> Runnable {
+    pub fn from_boxed_task(task: Box<dyn Executable>) -> Runnable {
         Runnable {
             task,
             cycles: 0,
@@ -46,8 +46,8 @@ pub struct StandaloneScheduler {
 
 /// Messages that can be sent on the scheduler channel to add or remove tasks.
 pub enum SchedulerCommand {
-    Add(Box<Executable + Send>),
-    Run(Arc<Fn(&mut StandaloneScheduler) + Send + Sync>),
+    Add(Box<dyn Executable + Send>),
+    Run(Arc<dyn Fn(&mut StandaloneScheduler) + Send + Sync>),
     Execute,
     Shutdown,
     Handshake(SyncSender<bool>),

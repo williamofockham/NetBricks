@@ -1,5 +1,6 @@
 #ifndef __PMD_H__
 #define __PMD_H__
+
 int num_pmd_ports();
 int get_pmd_ports(struct rte_eth_dev_info* info, int len);
 void enumerate_pmd_ports();

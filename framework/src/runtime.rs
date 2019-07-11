@@ -19,7 +19,7 @@ type TokioRuntime = tokio::runtime::current_thread::Runtime;
 pub struct Runtime {
     context: NetBricksContext,
     tokio_rt: TokioRuntime,
-    on_signal: Arc<Fn(i32) -> std::result::Result<(), i32>>,
+    on_signal: Arc<dyn Fn(i32) -> std::result::Result<(), i32>>,
 }
 
 impl Runtime {

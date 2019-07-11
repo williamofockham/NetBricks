@@ -1,18 +1,13 @@
-// https://doc.rust-lang.org/alloc/index.html
-#![feature(alloc)]
 // Used for cache alignment.
 // https://github.com/rust-lang/rust/issues/32838
 #![feature(allocator_api)]
 #![feature(asm)]
-// https://github.com/rust-lang/rust/issues/49733
-#![feature(box_syntax)]
 // https://github.com/rust-lang/rust/issues/27730
 // common workaround: https://github.com/rayon-rs/rayon-hash/blob/master/src/ptr.rs
 #![feature(ptr_internals)]
 // https://github.com/rust-lang/rust/issues/31844
 #![feature(specialization)]
 
-extern crate alloc;
 #[macro_use]
 extern crate clap;
 extern crate config as config_rs;
