@@ -109,7 +109,7 @@ lazy_static! {
         (@arg file: -f --file +takes_value "custom configuration file")
         (@arg name: -n --name +takes_value "DPDK process name")
         (@group process_mode =>
-            (@arg primary: --primary conflicts_with[secondary] "run as a primary process")
+            (@arg primary: --primary "run as a primary process")
             (@arg secondary: --secondary conflicts_with[primary] "run as a secondary process")
         )
         (@arg primary_core: --("primary-core") +takes_value "the core to run the main thread on")

@@ -106,6 +106,11 @@ where
     }
 }
 
+fn from_port_map(flow: Flow) -> Option<Flow> {
+    let port_map = PORT_MAP.read().unwrap();
+    port_map.get(&flow).cloned()
+}
+
 fn nat(packet: RawPacket, nat_ip: Ipv4Addr) -> Result<Tcp<Ipv4>> {
     let mut ethernet = packet.parse::<Ethernet>()?;
     ethernet.swap_addresses();
@@ -113,9 +118,9 @@ fn nat(packet: RawPacket, nat_ip: Ipv4Addr) -> Result<Tcp<Ipv4>> {
     let mut tcp = v4.parse::<Tcp<Ipv4>>()?;
     let flow = tcp.flow();
 
-    match PORT_MAP.read().unwrap().get(&flow) {
+    match from_port_map(flow) {
         Some(s) => {
-            let _ = tcp.stamp_flow(*s);
+            let _ = tcp.stamp_flow(s);
             tcp.cascade();
         }
         None => {
