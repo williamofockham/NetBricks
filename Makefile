@@ -2,7 +2,7 @@ PORT ?= "0000:00:09.0"
 CORE ?= 0
 BASE_DIR = $(shell git rev-parse --show-toplevel)
 POOL_SIZE ?= 512
-GH=git@github.com:williamofockham
+GH=https://github.com/williamofockham
 
 .PHONY: build build-all build-ex build-nb build-rel build-rel-ex clean cov fmt \
         init lint native run run-rel test watch watch-test

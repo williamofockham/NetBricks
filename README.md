@@ -24,7 +24,7 @@ done for you. We also include the [MoonGen](//github.com/williamofockham/MoonGen
    repositories into the same parent directory.
    ```shell
    host$ for repo in utils moonGen; do \
-           git clone --recurse-submodules git@github.com:williamofockham/${repo}.git; \
+           git clone --recurse-submodules https://github.com/williamofockham/${repo}.git; \
          done
    ```
 
