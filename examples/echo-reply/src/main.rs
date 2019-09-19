@@ -11,6 +11,8 @@ use netbricks::runtime::Runtime;
 use netbricks::scheduler::Scheduler;
 use std::fmt::Display;
 
+const PIPELINE_CORE: i32 = 0;
+
 fn install<T, S>(ports: Vec<T>, sched: &mut S)
 where
     T: PacketRx + PacketTx + Display + Clone + 'static,
@@ -74,6 +76,6 @@ fn main() -> Result<()> {
     let configuration = load_config()?;
     println!("{}", configuration);
     let mut runtime = Runtime::init(&configuration)?;
-    runtime.add_pipeline_to_run(install);
+    let _ = runtime.add_pipeline_to_core(PIPELINE_CORE, install);
     runtime.execute()
 }

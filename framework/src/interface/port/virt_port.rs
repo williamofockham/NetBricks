@@ -1,5 +1,4 @@
-use super::super::{PacketRx, PacketTx};
-use super::PortStats;
+use crate::interface::{PacketRx, PacketTx, PortStats};
 use allocators::*;
 use common::*;
 use native::mbuf::MBuf;

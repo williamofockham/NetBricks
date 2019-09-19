@@ -4,13 +4,18 @@ use allocators::*;
 use common::*;
 use interface::{PacketRx, PacketTx};
 use native::mbuf::MBuf;
+use packets::MacAddr;
 use std::sync::atomic::AtomicUsize;
 
 mod phy_port;
 mod virt_port;
 
+pub trait PortInfo {
+    fn mac_address(&self) -> MacAddr;
+}
+
 /// Statistics for PMD port.
-struct PortStats {
+pub struct PortStats {
     pub stats: AtomicUsize,
 }
 
@@ -33,5 +38,12 @@ impl<T: PacketTx> PacketTx for CacheAligned<T> {
     #[inline]
     fn send(&self, pkts: &mut [*mut MBuf]) -> Result<u32> {
         T::send(&*self, pkts)
+    }
+}
+
+impl<T: PortInfo> PortInfo for CacheAligned<T> {
+    #[inline]
+    fn mac_address(&self) -> MacAddr {
+        T::mac_address(&*self)
     }
 }

@@ -1,7 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 
-use super::super::{PacketRx, PacketTx};
-use super::PortStats;
+use crate::interface::{PacketRx, PacketTx, PortInfo, PortStats};
 use allocators::*;
 use common::*;
 use config::{PortConfiguration, NUM_RXD, NUM_TXD};
@@ -134,6 +133,13 @@ impl PacketRx for PortQueue {
         let rxq = self.rxq;
         let len = pkts.len() as i32;
         self.recv_queue(rxq, pkts.as_mut_ptr(), len)
+    }
+}
+
+impl PortInfo for PortQueue {
+    #[inline]
+    fn mac_address(&self) -> MacAddr {
+        self.port.mac_address()
     }
 }
 

@@ -48,6 +48,7 @@ pub struct StandaloneScheduler {
 pub enum SchedulerCommand {
     Add(Box<dyn Executable + Send>),
     Run(Arc<dyn Fn(&mut StandaloneScheduler) + Send + Sync>),
+    RunOnce(Box<dyn FnOnce(&mut StandaloneScheduler) + Send>),
     Execute,
     Shutdown,
     Handshake(SyncSender<bool>),
@@ -96,6 +97,7 @@ impl StandaloneScheduler {
         match request {
             SchedulerCommand::Add(ex) => self.run_q.push(Runnable::from_boxed_task(ex)),
             SchedulerCommand::Run(f) => f(self),
+            SchedulerCommand::RunOnce(f) => f(self),
             SchedulerCommand::Execute => self.execute_loop(),
             SchedulerCommand::Shutdown => {
                 self.execute_loop = false;

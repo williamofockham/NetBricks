@@ -89,7 +89,7 @@ fn install<S: Scheduler + Sized>(ports: Vec<CacheAligned<PortQueue>>, sched: &mu
     for port in &ports {
         println!(
             "Receiving port {} rxq {} txq {}",
-            port.port.mac_address(),
+            port.mac_address(),
             port.rxq(),
             port.txq()
         );

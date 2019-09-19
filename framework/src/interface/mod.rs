@@ -1,9 +1,9 @@
+pub mod dpdk;
+mod port;
+
 pub use self::port::*;
 use common::*;
 use native::mbuf::MBuf;
-
-pub mod dpdk;
-mod port;
 
 /// Generic trait for objects that can receive packets.
 pub trait PacketRx: Send {

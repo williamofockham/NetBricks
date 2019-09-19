@@ -37,6 +37,9 @@ pub struct NetBricksConfiguration {
     pub cache_size: u32,
     /// Custom DPDK arguments.
     pub dpdk_args: Option<String>,
+    /// Duration for running netbricks network function
+    /// (esp. useful for testing); used if not setting from cli-args
+    pub duration: Option<u64>,
 }
 
 impl fmt::Display for NetBricksConfiguration {
@@ -50,7 +53,7 @@ impl fmt::Display for NetBricksConfiguration {
 
         write!(
             f,
-            "name: {}, secondary: {}, pool size: {}, cache size: {}\nprimary core: {}, cores: {:?}, strict: {}\nports:\n{}\nDPDK args: {:?}",
+            "name: {}, secondary: {}, pool size: {}, cache size: {}\nprimary core: {}, cores: {:?}, strict: {}\nports:\n{}\nDPDK args: {:?}, duration: {:?}",
             self.name,
             self.secondary,
             self.pool_size,
@@ -60,6 +63,7 @@ impl fmt::Display for NetBricksConfiguration {
             self.strict,
             ports,
             self.dpdk_args,
+            self.duration
         )
     }
 }
@@ -118,7 +122,7 @@ lazy_static! {
         (@arg pool_size: --("pool-size") +takes_value "memory pool size")
         (@arg cache_size: --("cache-size") +takes_value "per core cache size")
         (@arg dpdk_args: --("dpdk-args") ... +takes_value "custom DPDK arguments")
-        (@arg duration: -d --duration +takes_value "test duration")
+        (@arg duration: -d --duration +takes_value "test duration in seconds")
     )
     .get_matches();
 }
@@ -172,6 +176,12 @@ impl Source for CommandLine {
             );
         }
 
+        if CLI_ARGS.is_present("duration") {
+            let duration = value_t!(CLI_ARGS, "duration", u32)
+                .map_err(|err| ConfigError::Foreign(Box::new(err)))?;
+            map.insert("duration".to_string(), Value::new(uri, i64::from(duration)));
+        }
+
         if let Some(ports) = CLI_ARGS.values_of("ports") {
             let cores = values_t!(CLI_ARGS, "cores", i32)
                 .map_err(|err| ConfigError::Foreign(Box::new(err)))?;
@@ -216,7 +226,6 @@ static DEFAULT_TOML: &str = r#"
     pool_size = 2047
     cache_size = 32
     ports = []
-    duration = 0
 "#;
 
 /// Loads the configuration

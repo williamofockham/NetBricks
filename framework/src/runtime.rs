@@ -2,7 +2,7 @@ pub use tokio_signal::unix::{SIGHUP, SIGINT, SIGTERM};
 
 use crate::allocators::CacheAligned;
 use crate::common::Result;
-use crate::config::{NetBricksConfiguration, CLI_ARGS};
+use crate::config::NetBricksConfiguration;
 use crate::interface::PortQueue;
 use crate::scheduler::{initialize_system, NetBricksContext, StandaloneScheduler};
 use std::io::{Error, ErrorKind};
@@ -19,6 +19,7 @@ type TokioRuntime = tokio::runtime::current_thread::Runtime;
 pub struct Runtime {
     context: NetBricksContext,
     tokio_rt: TokioRuntime,
+    duration: Option<u64>,
     on_signal: Arc<dyn Fn(i32) -> std::result::Result<(), i32>>,
 }
 
@@ -32,6 +33,7 @@ impl Runtime {
         Ok(Runtime {
             context,
             tokio_rt,
+            duration: configuration.duration,
             on_signal: Arc::new(|_| Err(0)),
         })
     }
@@ -42,6 +44,14 @@ impl Runtime {
         T: Fn(Vec<CacheAligned<PortQueue>>, &mut StandaloneScheduler) + Send + Sync + 'static,
     {
         self.context.add_pipeline_to_run(Arc::new(installer));
+    }
+
+    /// Runs a packet processing pipeline installer on a specific core
+    pub fn add_pipeline_to_core<T>(&mut self, core: i32, installer: T) -> Result<()>
+    where
+        T: FnOnce(Vec<CacheAligned<PortQueue>>, &mut StandaloneScheduler) + Send + 'static,
+    {
+        self.context.add_pipeline_to_core(core, installer)
     }
 
     /// Sets the Unix signal handler
@@ -96,11 +106,10 @@ impl Runtime {
         self.context.shutdown();
     }
 
-    fn wait_for_timeout(&mut self) -> Result<()> {
-        let duration = value_t!(CLI_ARGS, "duration", u64)?;
-        let when = Instant::now() + Duration::from_secs(duration);
+    fn wait_for_timeout(&mut self, timeout: u64) -> Result<()> {
+        let when = Instant::now() + Duration::from_secs(timeout);
 
-        info!("waiting for {} seconds", duration);
+        info!("waiting for {} seconds", timeout);
         let main_loop = Delay::new(when);
         let res = self.tokio_rt.block_on(main_loop);
 
@@ -165,10 +174,9 @@ impl Runtime {
     pub fn execute(&mut self) -> Result<()> {
         self.context.execute();
 
-        if CLI_ARGS.is_present("duration") {
-            self.wait_for_timeout()
-        } else {
-            self.wait_for_unix_signal()
+        match self.duration {
+            None | Some(0) => self.wait_for_unix_signal(),
+            Some(d) => self.wait_for_timeout(d),
         }
     }
 }
