@@ -96,7 +96,6 @@ impl<T: TcpControlAgent> TcpControlServer<T> {
                 );
             // Add to some sort of hashmap.
             } else {
-
             }
         } else {
             // FIXME: Report something.
