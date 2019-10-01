@@ -18,6 +18,6 @@ export examples=(
         examples/lpm
         examples/nat-tcp-v4
         examples/sctp
-        # examples/maglev
+        examples/maglev
         # examples/tcp-reconstruction
 )

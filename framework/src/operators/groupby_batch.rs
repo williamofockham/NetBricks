@@ -112,4 +112,7 @@ macro_rules! compose {
         $crate::__compose!($map, $($key => |$arg| $body),*);
         $map.insert(None, Box::new(|$_arg| Box::new($_body)));
     }};
+    ($map:ident, _ => |$_arg:tt| $_body:block) => {{
+        $map.insert(None, Box::new(|$_arg| Box::new($_body)));
+    }};
 }

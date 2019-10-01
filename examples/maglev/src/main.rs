@@ -1,26 +1,151 @@
-#![feature(box_syntax)]
 extern crate fnv;
-extern crate getopts;
+#[macro_use]
+extern crate lazy_static;
 extern crate netbricks;
-extern crate rand;
-extern crate time;
 extern crate twox_hash;
-use self::nf::*;
-use netbricks::config::{basic_opts, read_matches};
-use netbricks::interface::*;
-use netbricks::operators::*;
-use netbricks::scheduler::*;
-use std::env;
+use fnv::FnvHasher;
+use netbricks::common::Result;
+use netbricks::config::load_config;
+use netbricks::interface::{PacketRx, PacketTx};
+use netbricks::operators::{Batch, ReceiveBatch};
+use netbricks::packets::ip::v4::Ipv4;
+use netbricks::packets::ip::{Flow, IpPacket};
+use netbricks::packets::{Ethernet, Packet, Tcp};
+use netbricks::runtime::Runtime;
+use netbricks::scheduler::Scheduler;
+use std::collections::HashMap;
 use std::fmt::Display;
-use std::process;
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
-mod nf;
+use std::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
+use std::net::{IpAddr, Ipv4Addr};
+use std::sync::{Arc, RwLock};
+use std::{mem, slice};
+use twox_hash::XxHash;
 
-const CONVERSION_FACTOR: f64 = 1000000000.;
+const ENTRY_NUM: usize = 65537;
 
-fn test<T, S>(ports: Vec<T>, sched: &mut S)
+type FnvHash = BuildHasherDefault<FnvHasher>;
+type XxHashFactory = BuildHasherDefault<XxHash>;
+
+lazy_static! {
+    static ref FLOW_CACHE: Arc<RwLock<HashMap<usize, usize, FnvHash>>> = {
+        let m = HashMap::<usize, usize, FnvHash>::with_hasher(Default::default());
+        Arc::new(RwLock::new(m))
+    };
+    static ref BACKENDS: Vec<String> = {
+        let mut v = Vec::new();
+        v.push("Larry".to_string());
+        v.push("Moe".to_string());
+        v.push("Curly".to_string());
+        v
+    };
+    static ref LUT: Maglev = Maglev::new(ENTRY_NUM);
+}
+
+trait Stamper {
+    fn stamp_flow(&mut self, dst_ip: usize) -> Result<()>;
+}
+
+impl<E: IpPacket> Stamper for Tcp<E> {
+    fn stamp_flow(&mut self, dst_ip: usize) -> Result<()> {
+        self.set_dst_ip(IpAddr::V4(Ipv4Addr::new(
+            ((dst_ip >> 24) & 0xFF) as u8,
+            ((dst_ip >> 16) & 0xFF) as u8,
+            ((dst_ip >> 8) & 0xFF) as u8,
+            (dst_ip & 0xFF) as u8,
+        )))?;
+        Ok(())
+    }
+}
+
+pub struct Maglev {
+    lut: Vec<usize>,
+    lut_size: usize,
+}
+
+impl Maglev {
+    pub fn offset_skip_for_name(
+        name: &str,
+        h1: &FnvHash,
+        h2: &XxHashFactory,
+        lsize: usize,
+    ) -> (usize, usize) {
+        let mut fnv_state = h1.build_hasher();
+        name.hash(&mut fnv_state);
+        let hash1 = fnv_state.finish() as usize;
+        let mut xx_state = h2.build_hasher();
+        name.hash(&mut xx_state);
+        let hash2 = xx_state.finish() as usize;
+        let offset = hash2 % lsize;
+        let skip = hash1 % (lsize - 1) + 1;
+        (offset, skip)
+    }
+
+    pub fn generate_permutations(lsize: usize) -> Vec<Vec<usize>> {
+        println!("Generating permutations");
+        let fnv_hasher: FnvHash = Default::default();
+        let xx_hasher: XxHashFactory = Default::default();
+        BACKENDS
+            .iter()
+            .map(|n| Maglev::offset_skip_for_name(n, &fnv_hasher, &xx_hasher, lsize))
+            .map(|(offset, skip)| (0..lsize).map(|j| (offset + j * skip) % lsize).collect())
+            .collect()
+    }
+
+    fn generate_lut(permutations: Vec<Vec<usize>>, size: usize) -> Vec<usize> {
+        let mut next: Vec<_> = permutations.iter().map(|_| 0).collect();
+        let mut entry: Vec<usize> = (0..size).map(|_| 0x8000).collect();
+        let mut n = 0;
+        println!("Generating LUT");
+        while n < size {
+            for i in 0..next.len() {
+                let mut c = permutations[i][next[i]];
+                while entry[c as usize] != 0x8000 {
+                    next[i] += 1;
+                    c = permutations[i][next[i]];
+                }
+                if entry[c as usize] == 0x8000 {
+                    entry[c as usize] = i as usize;
+                    next[i] += 1;
+                    n += 1;
+                }
+                if n >= size {
+                    break;
+                }
+            }
+        }
+        println!("Done Generating LUT");
+        entry
+    }
+
+    pub fn new(lsize: usize) -> Maglev {
+        let permutations = Maglev::generate_permutations(lsize);
+        Maglev {
+            lut: Maglev::generate_lut(permutations, lsize),
+            lut_size: lsize,
+        }
+    }
+
+    #[inline]
+    pub fn lookup(&self, hash: usize) -> usize {
+        let idx = hash % self.lut_size;
+        self.lut[idx]
+    }
+
+    #[inline]
+    fn flow_as_u8(flow: &Flow) -> &[u8] {
+        let size = mem::size_of::<Flow>();
+        unsafe { slice::from_raw_parts((flow as *const Flow) as *const u8, size) }
+    }
+
+    #[inline]
+    fn flow_hash(flow: &Flow) -> usize {
+        let mut hasher = FnvHasher::default();
+        hasher.write(Maglev::flow_as_u8(flow));
+        hasher.finish() as usize
+    }
+}
+
+fn install<T, S>(ports: Vec<T>, sched: &mut S)
 where
     T: PacketRx + PacketTx + Display + Clone + 'static,
     S: Scheduler + Sized,
@@ -29,74 +154,33 @@ where
 
     let pipelines: Vec<_> = ports
         .iter()
-        .map(|port| {
-            maglev(
-                ReceiveBatch::new(port.clone()),
-                sched,
-                &vec!["Larry", "Curly", "Moe"],
-            )
-            .send(port.clone())
+        .map(move |port| {
+            ReceiveBatch::new(port.clone())
+                .map(|p| {
+                    let mut ethernet = p.parse::<Ethernet>()?;
+                    ethernet.swap_addresses();
+                    let v4 = ethernet.parse::<Ipv4>()?;
+                    let mut tcp = v4.parse::<Tcp<Ipv4>>()?;
+                    let hash = Maglev::flow_hash(&tcp.flow());
+                    let mut lock = FLOW_CACHE.write().unwrap();
+                    let assigned = lock.entry(hash).or_insert_with(|| LUT.lookup(hash));
+                    tcp.stamp_flow(*assigned)?;
+                    Ok(tcp)
+                })
+                .send(port.clone())
         })
         .collect();
+
     println!("Running {} pipelines", pipelines.len());
-    sched.add_task(merge(pipelines)).unwrap();
+    for pipeline in pipelines {
+        sched.add_task(pipeline).unwrap();
+    }
 }
 
-fn main() {
-    let opts = basic_opts();
-    let args: Vec<String> = env::args().collect();
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => panic!(f.to_string()),
-    };
-    let configuration = read_matches(&matches, &opts);
-
-    match initialize_system(&configuration) {
-        Ok(mut context) => {
-            context.start_schedulers();
-            context.add_pipeline_to_run(Arc::new(move |p, s: &mut StandaloneScheduler| test(p, s)));
-            context.execute();
-
-            let mut pkts_so_far = (0, 0);
-            let mut last_printed = 0.;
-            const MAX_PRINT_INTERVAL: f64 = 120.;
-            const PRINT_DELAY: f64 = 60.;
-            let sleep_delay = (PRINT_DELAY / 2.) as u64;
-            let mut start = time::precise_time_ns() as f64 / CONVERSION_FACTOR;
-            let sleep_time = Duration::from_millis(sleep_delay);
-            println!("0 OVERALL RX 0.00 TX 0.00 CYCLE_PER_DELAY 0 0 0");
-            loop {
-                thread::sleep(sleep_time); // Sleep for a bit
-                let now = time::precise_time_ns() as f64 / CONVERSION_FACTOR;
-                if now - start > PRINT_DELAY {
-                    let mut rx = 0;
-                    let mut tx = 0;
-                    for port in context.ports.values() {
-                        for q in 0..port.rxqs() {
-                            let (rp, tp) = port.stats(q);
-                            rx += rp;
-                            tx += tp;
-                        }
-                    }
-                    let pkts = (rx, tx);
-                    let rx_pkts = pkts.0 - pkts_so_far.0;
-                    if rx_pkts > 0 || now - last_printed > MAX_PRINT_INTERVAL {
-                        println!(
-                            "{:.2} OVERALL RX {:.2} TX {:.2}",
-                            now - start,
-                            rx_pkts as f64 / (now - start),
-                            (pkts.1 - pkts_so_far.1) as f64 / (now - start)
-                        );
-                        last_printed = now;
-                        start = now;
-                        pkts_so_far = pkts;
-                    }
-                }
-            }
-        }
-        Err(ref e) => {
-            println!("Error: {:?}", e);
-            process::exit(1);
-        }
-    }
+fn main() -> Result<()> {
+    let configuration = load_config()?;
+    println!("{}", configuration);
+    let mut runtime = Runtime::init(&configuration)?;
+    runtime.add_pipeline_to_run(|ports, sched| install(ports, sched));
+    runtime.execute()
 }

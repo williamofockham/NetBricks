@@ -32,10 +32,10 @@ where
                         compose!(
                             groups,
                             EtherTypes::Ipv4 => |group| {
-                                group.map(ipv4_nf)
+                                group.for_each(ipv4_nf)
                             },
                             EtherTypes::Ipv6 => |group| {
-                                group.map(ipv6_nf)
+                                group.for_each(ipv6_nf)
                             }
                         );
                     },
@@ -62,27 +62,27 @@ pub fn eth_nf(packet: RawPacket) -> Result<Ethernet> {
 }
 
 #[inline]
-pub fn ipv4_nf(ethernet: Ethernet) -> Result<Ethernet> {
-    let ipv4 = ethernet.parse::<Ipv4>()?;
+pub fn ipv4_nf(ethernet: &Ethernet) -> Result<()> {
+    let ipv4 = ethernet.peek::<Ipv4>()?;
     let info_fmt = format!("[ipv4] {}, [offset] {}", ipv4, ipv4.offset()).yellow();
     println!("{}", info_fmt);
 
-    let tcp = ipv4.parse::<Tcp<Ipv4>>()?;
+    let tcp = ipv4.peek::<Tcp<Ipv4>>()?;
     print_tcp(&tcp);
 
-    Ok(tcp.deparse().deparse())
+    Ok(())
 }
 
 #[inline]
-pub fn ipv6_nf(ethernet: Ethernet) -> Result<Ethernet> {
-    let ipv6 = ethernet.parse::<Ipv6>()?;
+pub fn ipv6_nf(ethernet: &Ethernet) -> Result<()> {
+    let ipv6 = ethernet.peek::<Ipv6>()?;
     let info_fmt = format!("[ipv6] {}, [offset] {}", ipv6, ipv6.offset()).cyan();
     println!("{}", info_fmt);
 
-    let tcp = ipv6.parse::<Tcp<Ipv6>>()?;
+    let tcp = ipv6.peek::<Tcp<Ipv6>>()?;
     print_tcp(&tcp);
 
-    Ok(tcp.deparse().deparse())
+    Ok(())
 }
 
 #[inline]
