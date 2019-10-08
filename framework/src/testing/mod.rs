@@ -26,7 +26,13 @@ use crate::packets::{Ethernet, Packet, Tcp, Udp};
 lazy_static! {
     pub static ref DPDK_TEST_POOL: tokio_threadpool::ThreadPool = tokio_threadpool::Builder::new()
         .pool_size(1)
-        .after_start(|| crate::interface::dpdk::init_system_wl("dpdk_tests", 0, &[]))
+        .after_start(|| crate::interface::dpdk::init_system_wl_with_mempool(
+            "dpdk_tests",
+            0,
+            &[],
+            32,
+            0
+        ))
         .build();
 }
 
