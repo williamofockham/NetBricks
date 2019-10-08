@@ -5,7 +5,7 @@ use netbricks::config::load_config;
 use netbricks::interface::{PacketRx, PacketTx};
 use netbricks::operators::{Batch, ReceiveBatch};
 use netbricks::packets::icmp::v6::{Icmpv6, PacketTooBig};
-use netbricks::packets::ip::v6::{Ipv6, IPV6_MIN_MTU};
+use netbricks::packets::ip::v6::{Ipv6, Ipv6Packet, IPV6_MIN_MTU};
 use netbricks::packets::ip::ProtocolNumbers;
 use netbricks::packets::{Ethernet, EthernetHeader, Fixed, Packet};
 use netbricks::runtime::Runtime;

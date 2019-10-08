@@ -4,7 +4,7 @@ use netbricks::config::load_config;
 use netbricks::interface::{PacketRx, PacketTx};
 use netbricks::operators::{mpsc_batch, Batch, Enqueue, MpscProducer, ReceiveBatch};
 use netbricks::packets::icmp::v6::{EchoReply, EchoRequest, Icmpv6};
-use netbricks::packets::ip::v6::Ipv6;
+use netbricks::packets::ip::v6::{Ipv6, Ipv6Packet};
 use netbricks::packets::ip::ProtocolNumbers;
 use netbricks::packets::{EtherTypes, Ethernet, Packet, RawPacket};
 use netbricks::runtime::Runtime;

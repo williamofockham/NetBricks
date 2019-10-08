@@ -1,7 +1,7 @@
 //! proptest strategies to generate packets
 
 use crate::packets::ip::v4::Ipv4;
-use crate::packets::ip::v6::{Ipv6, Ipv6Packet, Segment, SegmentRouting};
+use crate::packets::ip::v6::{Ipv6, Ipv6Packet, SegmentRouting};
 use crate::packets::ip::{IpPacket, ProtocolNumber, ProtocolNumbers};
 use crate::packets::{EtherType, EtherTypes, Ethernet, MacAddr, Packet, RawPacket, Tcp, Udp};
 use proptest::arbitrary::{any, Arbitrary};
@@ -124,9 +124,9 @@ impl StrategyMap {
         self.get::<Ipv6Addr>(key)
     }
 
-    fn sr_segments(&self) -> impl Strategy<Value = Vec<Segment>> {
+    fn sr_segments(&self) -> impl Strategy<Value = Vec<Ipv6Addr>> {
         if let Some(ref v) = self.0.get(&field::sr_segments) {
-            let v = v.downcast_ref::<Vec<Segment>>().unwrap_or_else(|| {
+            let v = v.downcast_ref::<Vec<Ipv6Addr>>().unwrap_or_else(|| {
                 panic!(
                     "value doesn't match type for field '{:?}'",
                     field::sr_segments
@@ -134,7 +134,7 @@ impl StrategyMap {
             });
             Just(v.clone()).boxed()
         } else {
-            vec(any::<Segment>(), 1..8).boxed()
+            vec(any::<Ipv6Addr>(), 1..8).boxed()
         }
     }
 }
