@@ -7,7 +7,7 @@ use netbricks::operators::{Batch, ReceiveBatch};
 use netbricks::packets::icmp::v6::{Icmpv6, PacketTooBig};
 use netbricks::packets::ip::v6::{Ipv6, Ipv6Packet, IPV6_MIN_MTU};
 use netbricks::packets::ip::ProtocolNumbers;
-use netbricks::packets::{Ethernet, EthernetHeader, Fixed, Packet};
+use netbricks::packets::{EtherTypes, Ethernet, EthernetHeader, Fixed, Packet};
 use netbricks::runtime::Runtime;
 use netbricks::scheduler::Scheduler;
 use std::fmt::Display;
@@ -25,7 +25,10 @@ where
             ReceiveBatch::new(port.clone())
                 .map(|p| p.parse::<Ethernet>())
                 .group_by(
-                    |eth| eth.len() > IPV6_MIN_MTU + EthernetHeader::size(),
+                    |eth| {
+                        eth.ether_type() == EtherTypes::Ipv6
+                            && eth.len() > IPV6_MIN_MTU + EthernetHeader::size()
+                    },
                     |groups| {
                         compose! {
                             groups,
@@ -51,7 +54,6 @@ where
 
 fn reject_too_big(mut ethernet: Ethernet) -> Result<Ethernet> {
     ethernet.swap_addresses();
-
     let mut ipv6 = ethernet.parse::<Ipv6>()?;
     let src = ipv6.src();
     let dst = ipv6.dst();
