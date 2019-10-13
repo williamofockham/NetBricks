@@ -1,0 +1,18 @@
+[package]
+name = "ndp-router-advertisement"
+version = "0.1.0"
+authors = ["William of Ockham <Occam_Engineering@comcast.com>"]
+description = "Example: when > ndp router advertisement"
+license = "..."
+repository = "https://github.com/williamofockham/NetBricks/tree/master/examples/ndp-router-advertisement"
+readme = "..."
+keywords = ["netbricks", "network-functions", "nfs", "packet-processing"]
+categories = ["network-functions", "framework"]
+
+[dependencies]
+netbricks = { path = "../../framework"}
+fallible-iterator = "0.2.0"
+
+[features]
+default = []
+print = []
