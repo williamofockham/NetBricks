@@ -63,8 +63,8 @@ pub fn process_icmpv6(ipv6: Ipv6) -> Result<Option<Ipv6>> {
     if let Ok(Icmpv6Message::RouterAdvertisement(advert)) = ipv6.parse_icmpv6() {
         let mut iter = advert.options();
         while let Ok(Some(option)) = iter.next() {
-            if let NdpOptions::SourceLinkLayerAddress(option_type) = option {
-                option_type.
+            if let NdpOptions::SourceLinkLayerAddress(_option_type) = option {
+                //process options here
             }
         }
     }
