@@ -1,10 +1,10 @@
 [package]
-name = "ndp-router-advertisement"
+name = "icmpv6-router-advertisement"
 version = "0.1.0"
 authors = ["William of Ockham <Occam_Engineering@comcast.com>"]
-description = "Example: when > ndp router advertisement"
+description = "Example: icmpv6 router advertisement"
 license = "..."
-repository = "https://github.com/williamofockham/NetBricks/tree/master/examples/ndp-router-advertisement"
+repository = "https://github.com/williamofockham/NetBricks/tree/master/examples/icmpv6-router-advertisement"
 readme = "..."
 keywords = ["netbricks", "network-functions", "nfs", "packet-processing"]
 categories = ["network-functions", "framework"]

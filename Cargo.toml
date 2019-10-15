@@ -8,6 +8,7 @@ members = [
     "examples/echo-reply",
     "examples/embedded-scheduler",
     "examples/embedded-scheduler-dependency",
+    "examples/icmpv6-router-advertisement",
     "examples/ipv4or6",
     "examples/lpm",
     "examples/macswap",
@@ -17,7 +18,6 @@ members = [
     "examples/op-errors",
     "examples/sctp",
     "examples/signals",
-    # "examples/tcp-reconstruction"
 ]
 
 [profile.release]
