@@ -38,7 +38,7 @@ where
                         compose! {
                             groups,
                             ProtocolNumbers::Icmpv6 => |group| {
-                                group.filter_map(process_icmpv6).emit()
+                                group.filter_map(process_icmpv6)
                             },
                             _ => |group| {
                                 group.filter(|_| {
