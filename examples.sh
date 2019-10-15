@@ -15,6 +15,7 @@ export examples=(
         examples/collect-metrics
         examples/embedded-scheduler
         examples/embedded-scheduler-dependency
+        examples/icmpv6-router-advertisement
         examples/lpm
         examples/nat-tcp-v4
         examples/sctp
