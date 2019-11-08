@@ -4,6 +4,7 @@ use crate::common::Result;
 use crate::native::mbuf::MBuf;
 use crate::packets::Fixed;
 use failure::Fail;
+use std::cmp::Ordering;
 use std::slice;
 
 /// Errors related to DPDK message buffer access
@@ -84,15 +85,17 @@ pub fn dealloc(mbuf: *mut MBuf, offset: usize, len: usize) -> Result<()> {
         if len > 0 {
             let data_len = (*mbuf).data_len();
             let src_offset = offset + len;
-            if src_offset < data_len {
-                let src = (*mbuf).data_address(offset + len);
-                let dst = (*mbuf).data_address(offset);
-                std::ptr::copy(src, dst, data_len - src_offset);
-                (*mbuf).remove_data_end(len);
-            } else if src_offset == data_len {
-                (*mbuf).remove_data_end(len);
-            } else {
-                return Err(BufferError::NotResized.into());
+            match src_offset.cmp(&data_len) {
+                Ordering::Less => {
+                    let src = (*mbuf).data_address(offset + len);
+                    let dst = (*mbuf).data_address(offset);
+                    std::ptr::copy(src, dst, data_len - src_offset);
+                    (*mbuf).remove_data_end(len);
+                }
+                Ordering::Equal => {
+                    (*mbuf).remove_data_end(len);
+                }
+                _ => return Err(BufferError::NotResized.into()),
             }
         }
 
@@ -103,12 +106,10 @@ pub fn dealloc(mbuf: *mut MBuf, offset: usize, len: usize) -> Result<()> {
 /// Reallocates buffer memory
 #[inline]
 pub fn realloc(mbuf: *mut MBuf, offset: usize, len: isize) -> Result<()> {
-    if len > 0 {
-        alloc(mbuf, offset, len as usize)
-    } else if len < 0 {
-        dealloc(mbuf, offset, -len as usize)
-    } else {
-        Ok(())
+    match len.cmp(&0) {
+        Ordering::Greater => alloc(mbuf, offset, len as usize),
+        Ordering::Less => dealloc(mbuf, offset, -len as usize),
+        _ => Ok(()),
     }
 }
 
